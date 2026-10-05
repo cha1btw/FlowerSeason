@@ -1,7 +1,8 @@
 "use client";
 
-import { ArrowUpRight } from "lucide-react";
-import { useActionState, useEffect, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { ArrowUpRight, X } from "lucide-react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { sendTelegramMessage } from "@/app/actions";
 import { siteContent, type InterestValue } from "@/lib/content";
@@ -32,6 +33,9 @@ export function ContactForm() {
     initialContactFormState,
   );
   const [interest, setInterest] = useState<InterestValue | "">("");
+  const [isSuccessDialogOpen, setIsSuccessDialogOpen] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     function readInterest() {
@@ -55,24 +59,41 @@ export function ContactForm() {
     };
   }, []);
 
-  if (state.status === "success") {
-    return (
-      <div
-        role="status"
-        className="flex min-h-[28rem] items-end border-t border-ink pb-8"
-      >
-        <p className="max-w-xl text-3xl font-light leading-tight tracking-[-0.025em] sm:text-5xl">
-          {state.message}
-        </p>
-      </div>
-    );
+  useEffect(() => {
+    if (state.status === "success") setIsSuccessDialogOpen(true);
+  }, [state]);
+
+  useEffect(() => {
+    if (!isSuccessDialogOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeSuccessDialog();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.requestAnimationFrame(() => closeButtonRef.current?.focus());
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isSuccessDialogOpen]);
+
+  function closeSuccessDialog() {
+    setIsSuccessDialogOpen(false);
+    formRef.current?.reset();
+    setInterest("");
   }
 
   const inputClass =
     "min-h-14 w-full border-b border-neutral-400 bg-transparent py-3 text-base outline-none transition-colors placeholder:text-neutral-400 focus:border-ink";
 
   return (
-    <form action={formAction} className="space-y-8">
+    <>
+      <form ref={formRef} action={formAction} className="space-y-8">
       <div className="absolute -left-[9999px]" aria-hidden="true">
         <label htmlFor="website">Website</label>
         <input id="website" name="website" tabIndex={-1} autoComplete="off" />
@@ -156,6 +177,67 @@ export function ContactForm() {
           {siteContent.contact.privacy}
         </p>
       </div>
-    </form>
+      </form>
+
+      <AnimatePresence>
+        {isSuccessDialogOpen ? (
+          <motion.div
+            className="fixed inset-0 z-[100] grid place-items-end bg-ink/55 p-3 backdrop-blur-[2px] sm:place-items-center sm:p-8"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.28, ease: "easeOut" }}
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) closeSuccessDialog();
+            }}
+          >
+            <motion.div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="success-dialog-title"
+              aria-describedby="success-dialog-message"
+              className="relative w-full max-w-xl border border-ink bg-canvas p-6 shadow-2xl sm:p-10"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 12 }}
+              transition={{ duration: 0.42, ease: "easeOut" }}
+            >
+              <button
+                ref={closeButtonRef}
+                type="button"
+                onClick={closeSuccessDialog}
+                aria-label={siteContent.contact.successDialog.closeLabel}
+                className="absolute right-4 top-4 grid size-11 place-items-center border border-line transition-colors hover:bg-line focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ink active:bg-neutral-200 sm:right-6 sm:top-6"
+              >
+                <X size={18} strokeWidth={1.4} aria-hidden="true" />
+              </button>
+
+              <p className="pr-14 text-[10px] tracking-[0.18em] text-neutral-500">
+                {siteContent.contact.successDialog.eyebrow}
+              </p>
+              <h3
+                id="success-dialog-title"
+                className="mt-14 max-w-sm text-4xl font-light leading-[0.94] tracking-[-0.04em] sm:text-6xl"
+              >
+                {siteContent.contact.successDialog.title}
+              </h3>
+              <p
+                id="success-dialog-message"
+                className="mt-8 max-w-md text-base leading-relaxed text-neutral-600 sm:text-lg"
+              >
+                {state.message}
+              </p>
+              <button
+                type="button"
+                onClick={closeSuccessDialog}
+                className="mt-12 inline-flex min-h-12 items-center border-b border-ink py-3 text-xs font-medium tracking-[0.15em] transition-opacity hover:opacity-55 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ink active:opacity-45"
+              >
+                {siteContent.contact.successDialog.close}
+              </button>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </>
   );
 }

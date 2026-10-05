@@ -255,6 +255,12 @@ export const siteContent = {
     submit: "НАДІСЛАТИ",
     submitting: "НАДСИЛАЄМО…",
     success: "Дякуємо! Ми зв’яжемося з вами найближчим часом.",
+    successDialog: {
+      eyebrow: "ЗАЯВКА НАДІСЛАНА",
+      title: "Дякуємо за ваш запит.",
+      close: "ЗРОЗУМІЛО",
+      closeLabel: "Закрити повідомлення про успішне надсилання заявки",
+    },
     directPrefix: "Або напишіть нам напряму в Telegram",
     directLabel: "@rudnitskaya_n",
     privacy: "Надсилаючи форму, ви погоджуєтеся на обробку контактних даних.",
