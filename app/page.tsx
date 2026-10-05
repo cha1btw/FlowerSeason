@@ -130,7 +130,7 @@ export default function HomePage() {
               </Reveal>
 
               <div className="col-span-12 mt-4 grid grid-cols-12 gap-3 sm:gap-5 lg:mt-12">
-                <Reveal className="group relative col-span-12 aspect-[16/10] overflow-hidden bg-line sm:col-span-8">
+                <Reveal className="group relative col-span-12 aspect-[16/10] overflow-hidden bg-line sm:col-span-7 sm:aspect-[5/4]">
                   <Image
                     src={decor.images[0].src}
                     alt={decor.images[0].alt}
@@ -139,7 +139,7 @@ export default function HomePage() {
                     className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
                   />
                 </Reveal>
-                <Reveal delay={0.08} className="group relative col-span-7 aspect-[3/4] overflow-hidden bg-line sm:col-span-4 sm:row-span-2 sm:aspect-auto">
+                <Reveal delay={0.08} className="group relative col-span-12 aspect-[4/5] overflow-hidden bg-line sm:col-span-5 sm:row-span-2 sm:aspect-auto">
                   <Image
                     src={decor.images[1].src}
                     alt={decor.images[1].alt}
@@ -148,7 +148,7 @@ export default function HomePage() {
                     className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
                   />
                 </Reveal>
-                <Reveal delay={0.12} className="group relative col-span-5 aspect-[3/4] overflow-hidden bg-line sm:col-span-4 sm:col-start-3">
+                <Reveal delay={0.12} className="group relative col-span-12 mt-3 aspect-[4/3] overflow-hidden bg-line sm:col-span-6 sm:col-start-2 sm:mt-0">
                   <Image
                     src={decor.images[2].src}
                     alt={decor.images[2].alt}
@@ -283,7 +283,7 @@ export default function HomePage() {
               </Reveal>
 
               <div className="col-span-12 grid grid-cols-12 gap-3 sm:col-span-6 sm:col-start-7 sm:gap-5">
-                <Reveal delay={0.05} className="group relative col-span-8 aspect-[4/5] overflow-hidden bg-line">
+                <Reveal delay={0.05} className="group relative col-span-12 aspect-[4/5] overflow-hidden bg-line sm:col-span-7">
                   <Image
                     src={gifts.images[0].src}
                     alt={gifts.images[0].alt}
@@ -292,21 +292,12 @@ export default function HomePage() {
                     className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
                   />
                 </Reveal>
-                <Reveal delay={0.1} className="group relative col-span-4 mt-20 aspect-[3/5] overflow-hidden bg-line">
+                <Reveal delay={0.1} className="group relative col-span-12 mt-3 aspect-[4/3] overflow-hidden bg-line sm:col-span-5 sm:mt-24 sm:aspect-[3/5]">
                   <Image
                     src={gifts.images[1].src}
                     alt={gifts.images[1].alt}
                     fill
                     sizes="(max-width: 639px) 33vw, 20vw"
-                    className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
-                  />
-                </Reveal>
-                <Reveal delay={0.14} className="group relative col-span-6 col-start-5 aspect-square overflow-hidden bg-line">
-                  <Image
-                    src={gifts.images[2].src}
-                    alt={gifts.images[2].alt}
-                    fill
-                    sizes="(max-width: 639px) 50vw, 30vw"
                     className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
                   />
                 </Reveal>
@@ -337,7 +328,7 @@ export default function HomePage() {
                 />
               </Reveal>
               <div className="col-span-12 grid grid-cols-12 gap-3 sm:col-span-6 sm:gap-5">
-                <Reveal delay={0.08} className="relative col-span-7 aspect-[3/4] overflow-hidden bg-neutral-800 sm:col-span-8">
+                <Reveal delay={0.08} className="relative col-span-12 aspect-[4/5] overflow-hidden bg-neutral-800 sm:aspect-auto">
                   <Image
                     src={flowerBar.media.videoPoster}
                     alt={flowerBar.media.videoLabel}
@@ -355,15 +346,6 @@ export default function HomePage() {
                     loop
                     playsInline
                     preload="metadata"
-                  />
-                </Reveal>
-                <Reveal delay={0.12} className="group relative col-span-5 mt-20 aspect-[3/4] overflow-hidden bg-neutral-800 sm:col-span-4">
-                  <Image
-                    src={flowerBar.media.detail}
-                    alt={flowerBar.media.detailAlt}
-                    fill
-                    sizes="(max-width: 639px) 42vw, 17vw"
-                    className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
                   />
                 </Reveal>
               </div>

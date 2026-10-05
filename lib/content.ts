@@ -136,7 +136,7 @@ export const siteContent = {
       kit: "/media/workshops-kit.webp",
       kitAlt: "Фірмові набори Flower Season для учасників",
       video: "/media/workshop.mp4",
-      videoPoster: "/media/workshops-main.webp",
+      videoPoster: "/media/workshops-kit.webp",
       videoLabel: "Процес створення різдвяного вінка",
     },
   },
@@ -163,10 +163,6 @@ export const siteContent = {
         src: "/media/gifts-grid.webp",
         alt: "Серія персоналізованих корпоративних подарунків",
       },
-      {
-        src: "/media/gifts-detail.webp",
-        alt: "Сучасна хвойна композиція у золотій вазі",
-      },
     ],
   },
   flowerBar: {
@@ -187,8 +183,6 @@ export const siteContent = {
     media: {
       main: "/media/flower-bar-main.webp",
       mainAlt: "Брендована квіткова композиція для корпоративної події",
-      detail: "/media/flower-bar-detail.webp",
-      detailAlt: "Сезонні букети Flower Season у крафтових боксах",
       video: "/media/flower-bar.mp4",
       videoPoster: "/media/flower-bar-detail.webp",
       videoLabel: "Квіткові композиції на події",
