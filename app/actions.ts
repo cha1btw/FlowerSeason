@@ -1,16 +1,7 @@
 "use server";
 
 import { siteContent, type InterestValue } from "@/lib/content";
-
-export type ContactFormState = {
-  status: "idle" | "success" | "error";
-  message: string;
-};
-
-export const initialContactFormState: ContactFormState = {
-  status: "idle",
-  message: "",
-};
+import type { ContactFormState } from "@/lib/contact-form-state";
 
 const interestLabels = new Map<InterestValue, string>(
   siteContent.contact.options.map((option) => [option.value, option.label]),

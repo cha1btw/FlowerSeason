@@ -3,11 +3,9 @@
 import { ArrowUpRight } from "lucide-react";
 import { useActionState, useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
-import {
-  initialContactFormState,
-  sendTelegramMessage,
-} from "@/app/actions";
+import { sendTelegramMessage } from "@/app/actions";
 import { siteContent, type InterestValue } from "@/lib/content";
+import { initialContactFormState } from "@/lib/contact-form-state";
 
 const validInterests = new Set<InterestValue>(
   siteContent.contact.options.map((option) => option.value),
