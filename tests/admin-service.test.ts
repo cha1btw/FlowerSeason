@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { after, before, beforeEach, describe, test } from "node:test";
 import { sql } from "drizzle-orm";
 import {
+  cancelBooking,
   clearDraft,
   createSession,
   getAnalytics,
@@ -11,6 +12,7 @@ import {
   saveDraft,
   setSessionStatus,
   updateCapacity,
+  updateSession,
 } from "../lib/booking/admin-service.ts";
 import { confirmPayment, createBooking } from "../lib/booking/service.ts";
 import { createDb, type Db } from "../lib/db/index.ts";
@@ -182,5 +184,83 @@ describe("admin service", { skip: !url && "TEST_DATABASE_URL is not set" }, () =
     await saveDraft(db, 7, "date", {});
     await clearDraft(db, 7);
     assert.equal(await getDraft(db, 7), undefined);
+  });
+
+  test("price, time and duration can be changed on an open date", async () => {
+    const session = await createSession(db, { startsAt: days(10), capacity: 8, priceKop: 100_000 });
+    const updated = await updateSession(db, session.id, {
+      startsAt: days(11),
+      priceKop: 150_000,
+      durationMin: 90,
+    });
+    assert.equal(updated?.priceKop, 150_000);
+    assert.equal(updated?.durationMin, 90);
+    assert.equal(updated?.startsAt.getTime(), days(11).getTime());
+  });
+
+  test("a cancelled date cannot be edited", async () => {
+    const session = await createSession(db, { startsAt: days(10), capacity: 8, priceKop: 100_000 });
+    await setSessionStatus(db, session.id, "cancelled");
+    assert.equal(await updateSession(db, session.id, { priceKop: 1 }), undefined);
+  });
+
+  test("a new price applies to new bookings only", async () => {
+    const session = await createSession(db, { startsAt: days(10), capacity: 8, priceKop: 100_000 });
+    const early = await paidBooking(session.id, 1, 1, now);
+    await updateSession(db, session.id, { priceKop: 200_000 });
+    const late = await paidBooking(session.id, 2, 1, minutes(1));
+
+    assert.equal(early.amountKop, 100_000);
+    assert.equal(late.amountKop, 200_000);
+    assert.equal((await getAnalytics(db, now)).revenueKop, 300_000);
+  });
+
+  test("moving the start re-arms reminders, changing the price does not", async () => {
+    const session = await createSession(db, { startsAt: days(10), capacity: 8, priceKop: 100_000 });
+    const guest = await paidBooking(session.id, 1, 1, now);
+    const mark = () => db.update(bookings).set({ reminderSentAt: now }).where(sql`${bookings.id} = ${guest.id}`);
+    const read = async () =>
+      (await db.select().from(bookings).where(sql`${bookings.id} = ${guest.id}`))[0].reminderSentAt;
+
+    await mark();
+    await updateSession(db, session.id, { priceKop: 120_000 });
+    assert.ok(await read(), "price change keeps the reminder as sent");
+
+    await updateSession(db, session.id, { startsAt: days(12) });
+    assert.equal(await read(), null, "time change schedules a new reminder");
+  });
+
+  test("cancelling a booking frees the seats and removes it from revenue", async () => {
+    const session = await createSession(db, { startsAt: days(10), capacity: 2, priceKop: 100_000 });
+    const guest = await paidBooking(session.id, 1, 2, now);
+    assert.equal((await listAdminSessions(db, minutes(1)))[0].paidSeats, 2);
+
+    const cancelled = await cancelBooking(db, guest.id);
+    assert.equal(cancelled?.status, "cancelled");
+    assert.equal(await cancelBooking(db, guest.id), undefined, "second cancel does nothing");
+
+    const [row] = await listAdminSessions(db, minutes(1));
+    assert.equal(row.paidSeats, 0);
+    assert.equal(row.revenueKop, 0);
+    assert.equal((await getAnalytics(db, now)).revenueKop, 0);
+    assert.deepEqual(await getParticipants(db, session.id), []);
+
+    const next = await createBooking(
+      db,
+      { sessionId: session.id, name: "New", phone: "+380501234567", email: "new@example.com", seats: 2 },
+      minutes(2),
+    );
+    assert.equal(next.ok, true, "the freed seats can be sold again");
+  });
+
+  test("an unpaid booking cannot be cancelled this way", async () => {
+    const session = await createSession(db, { startsAt: days(10), capacity: 8, priceKop: 100_000 });
+    const pending = await createBooking(
+      db,
+      { sessionId: session.id, name: "P", phone: "+380501234567", email: "p@example.com", seats: 1 },
+      now,
+    );
+    assert.ok(pending.ok);
+    assert.equal(await cancelBooking(db, pending.booking.id), undefined);
   });
 });

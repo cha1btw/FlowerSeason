@@ -20,6 +20,7 @@ export const BOOKING_STATUSES = [
   "failed",
   "expired",
   "needs_attention",
+  "cancelled", // a paid booking cancelled by the owner (refund is done by hand)
 ] as const;
 export type BookingStatus = (typeof BOOKING_STATUSES)[number];
 
@@ -75,7 +76,7 @@ export const bookings = pgTable(
     check("bookings_amount_non_negative", sql`${t.amountKop} >= 0`),
     check(
       "bookings_status_valid",
-      sql`${t.status} in ('pending', 'paid', 'failed', 'expired', 'needs_attention')`,
+      sql`${t.status} in ('pending', 'paid', 'failed', 'expired', 'needs_attention', 'cancelled')`,
     ),
     index("bookings_session_status_idx").on(t.sessionId, t.status),
   ],

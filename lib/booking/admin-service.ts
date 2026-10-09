@@ -44,6 +44,56 @@ export async function setSessionStatus(
   return session;
 }
 
+export type SessionPatch = {
+  startsAt?: Date;
+  priceKop?: number;
+  durationMin?: number;
+};
+
+// Changes time, price or duration of a date that is not cancelled.
+// The price only applies to NEW bookings: what existing guests paid is stored
+// on their booking. When the start moves, reminders are re-armed so guests get
+// a reminder for the new time rather than none (or a stale one).
+export async function updateSession(
+  db: Db,
+  sessionId: string,
+  patch: SessionPatch,
+): Promise<Session | undefined> {
+  return db.transaction(async (tx) => {
+    const [session] = await tx
+      .update(sessions)
+      .set(patch)
+      .where(and(eq(sessions.id, sessionId), ne(sessions.status, "cancelled")))
+      .returning();
+    if (session && patch.startsAt) {
+      await tx
+        .update(bookings)
+        .set({ reminderSentAt: null })
+        .where(eq(bookings.sessionId, sessionId));
+    }
+    return session;
+  });
+}
+
+export async function getBooking(db: Db, bookingId: string): Promise<Booking | undefined> {
+  const [booking] = await db.select().from(bookings).where(eq(bookings.id, bookingId));
+  return booking;
+}
+
+// Cancels a paid booking: the seats are released and it leaves the revenue.
+// The money itself is refunded by hand in the bank cabinet.
+export async function cancelBooking(
+  db: Db,
+  bookingId: string,
+): Promise<Booking | undefined> {
+  const [booking] = await db
+    .update(bookings)
+    .set({ status: "cancelled" })
+    .where(and(eq(bookings.id, bookingId), inArray(bookings.status, ["paid", "needs_attention"])))
+    .returning();
+  return booking;
+}
+
 export type UpdateCapacityResult =
   | { ok: true; session: Session }
   | { ok: false; reason: "not_found" | "too_low"; seatsTaken?: number };

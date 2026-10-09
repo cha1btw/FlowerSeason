@@ -276,4 +276,128 @@ describe("telegram bot", { skip: !url && "TEST_DATABASE_URL is not set" }, () =>
     assert.match(lastText(), /Виручка всього: <b>3 600 ₴<\/b>/);
     assert.match(lastText(), /2\/8/);
   });
+
+  async function paidGuest(sessionId: string, n = 1, seats = 1) {
+    const guest = await createBooking(db, {
+      sessionId,
+      name: `Гість ${n}`,
+      phone: "+380501234567",
+      email: `guest${n}@example.com`,
+      seats,
+    });
+    assert.ok(guest.ok);
+    await confirmPayment(db, guest.booking.id);
+    return guest.booking;
+  }
+
+  // Emails are only logged in tests (Resend is not configured).
+  async function captureEmails(run: () => Promise<void>) {
+    const lines: string[] = [];
+    const original = console.log;
+    console.log = (...args: unknown[]) => void lines.push(args.join(" "));
+    try {
+      await run();
+    } finally {
+      console.log = original;
+    }
+    return lines.filter((l) => l.includes("[email not configured]"));
+  }
+
+  test("a stranger is told their Telegram id so the owner can add them", async () => {
+    await say("/start", STRANGER);
+    assert.match(lastText(), new RegExp(`<code>${STRANGER}</code>`));
+  });
+
+  test("the price can be changed from the card", async () => {
+    const session = await createViaWizard();
+    await tap(`ep:${session.id}`);
+    await say("2500");
+    assert.equal((await db.select().from(sessions))[0].priceKop, 250_000);
+    assert.match(texts().join("\n"), /Нова ціна/);
+  });
+
+  test("a bad price keeps the step open", async () => {
+    const session = await createViaWizard();
+    await tap(`ep:${session.id}`);
+    await say("безкоштовно");
+    assert.match(lastText(), /Вкажіть ціну/);
+    assert.equal((await db.select().from(sessions))[0].priceKop, 180_000);
+  });
+
+  test("the duration can be changed from the card", async () => {
+    const session = await createViaWizard();
+    await tap(`ed:${session.id}`);
+    await say("5");
+    assert.match(lastText(), /Вкажіть тривалість/);
+    await say("150");
+    assert.equal((await db.select().from(sessions))[0].durationMin, 150);
+  });
+
+  test("changing the time moves the date and emails every guest", async () => {
+    const session = await createViaWizard();
+    await paidGuest(session.id, 1);
+    await paidGuest(session.id, 2);
+
+    const emails = await captureEmails(async () => {
+      await tap(`et:${session.id}`);
+      await say("21.12 19:30");
+    });
+
+    const [updated] = await db.select().from(sessions);
+    assert.equal(formatSessionDate(updated.startsAt), "21 грудня");
+    assert.equal(formatSessionTime(updated.startsAt), "19:30");
+    assert.equal(emails.length, 2);
+    assert.ok(emails.every((line) => line.includes("Зміна часу")));
+  });
+
+  test("a time in the past or a malformed time is refused", async () => {
+    const session = await createViaWizard();
+    await tap(`et:${session.id}`);
+    await say("завтра");
+    assert.match(lastText(), /Не розумію/);
+    await say("01.01.2020 10:00");
+    assert.match(lastText(), /минув/);
+    assert.equal(formatSessionDate((await db.select().from(sessions))[0].startsAt), "20 грудня");
+  });
+
+  test("participants are listed and a booking can be cancelled with a refund reminder", async () => {
+    const session = await createViaWizard();
+    const guest = await paidGuest(session.id, 1, 2);
+
+    await tap(`pl:${session.id}`);
+    const entry = buttons().find((b) => b.callback_data === `pp:${guest.id}`);
+    assert.ok(entry);
+    assert.match(entry.text, /Гість 1/);
+
+    await tap(`pp:${guest.id}`);
+    assert.match(lastText(), /guest1@example\.com/);
+
+    await tap(`bc:${guest.id}`);
+    assert.match(lastText(), /Місця звільняться/);
+    assert.equal(
+      (await db.execute(sql`select status from bookings`))[0].status,
+      "paid",
+      "asking is not cancelling",
+    );
+
+    const emails = await captureEmails(() => tap(`bcy:${guest.id}`));
+    assert.equal((await db.execute(sql`select status from bookings`))[0].status, "cancelled");
+    assert.match(lastText(), /Поверніть клієнту/);
+    assert.equal(emails.length, 1);
+    assert.match(emails[0], /guest1@example\.com/);
+  });
+
+  test("cancelling a date emails every paid guest", async () => {
+    const session = await createViaWizard();
+    await paidGuest(session.id, 1);
+    await paidGuest(session.id, 2);
+
+    const emails = await captureEmails(async () => {
+      await tap(`cxy:${session.id}`);
+    });
+
+    assert.equal(emails.length, 2);
+    assert.ok(emails.every((line) => line.includes("скасовано")));
+    assert.match(lastText(), /Листи учасникам/);
+  });
 });

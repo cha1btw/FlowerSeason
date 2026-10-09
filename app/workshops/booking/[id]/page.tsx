@@ -37,7 +37,7 @@ export default async function BookingStatusPage({
   if (!found) notFound();
 
   const { booking, session } = found;
-  const view = bookingView(booking, new Date());
+  const view = bookingView(booking, new Date(), session.status);
   const text = page.booking.views[view];
 
   const rows = [
@@ -84,7 +84,7 @@ export default async function BookingStatusPage({
               {page.booking.retry}
             </Link>
           ) : null}
-          {view === "needs_attention" || view === "expired" ? (
+          {view === "needs_attention" || view === "expired" || view === "cancelled" ? (
             <a href={contacts.telegram.url} target="_blank" rel="noreferrer" className={ctaClass}>
               TELEGRAM
             </a>

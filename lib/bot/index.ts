@@ -1,19 +1,23 @@
 import { Bot, InlineKeyboard, Keyboard, type Context } from "grammy";
 import { adminChatIds } from "../admin.ts";
 import {
+  cancelBooking,
   clearDraft,
   createSession,
   getAdminSession,
   getAnalytics,
+  getBooking,
   getDraft,
   getParticipants,
   listAdminSessions,
   saveDraft,
   setSessionStatus,
   updateCapacity,
+  updateSession,
 } from "../booking/admin-service.ts";
+import { notifyCancelled, notifyRescheduled } from "../booking/notify-guests.ts";
 import type { Db } from "../db/index.ts";
-import { formatUah } from "../format.ts";
+import { formatUah, pluralSeats } from "../format.ts";
 import { siteUrl } from "../site.ts";
 import { escapeTelegramHtml as esc } from "../telegram.ts";
 import { kyivDateParts } from "../time.ts";
@@ -29,6 +33,8 @@ import {
   combineStart,
   parseCapacity,
   parseDate,
+  parseDateTime,
+  parseDuration,
   parsePriceKop,
   parseTime,
 } from "./wizard.ts";
@@ -59,7 +65,11 @@ export function createBot(db: Db, token: string): Bot {
     const allowed = adminChatIds();
     const ids = [ctx.from?.id, ctx.chat?.id].filter((id) => id !== undefined).map(String);
     if (ids.some((id) => allowed.includes(id))) return next();
-    if (ctx.chat?.type === "private") await ctx.reply(NOT_ADMIN);
+    // Telling a stranger their own Telegram id is harmless and is how the owner
+    // finds the id to put into ADMIN_TELEGRAM_IDS.
+    if (ctx.chat?.type === "private" && ctx.from) {
+      await ctx.reply(`${NOT_ADMIN}\n\nВаш Telegram ID: <code>${ctx.from.id}</code>`, HTML);
+    }
   });
 
   const chatIdOf = (ctx: Context) => ctx.chat!.id;
@@ -84,7 +94,13 @@ export function createBot(db: Db, token: string): Bot {
     if (session.status !== "cancelled") {
       keyboard
         .text(session.status === "open" ? "🔒 Закрити продаж" : "🔓 Відкрити продаж", `st:${sessionId}`)
-        .text("✏️ Кількість місць", `cap:${sessionId}`)
+        .text("✏️ Місця", `cap:${sessionId}`)
+        .row()
+        .text("🕒 Дата й час", `et:${sessionId}`)
+        .text("💰 Ціна", `ep:${sessionId}`)
+        .row()
+        .text("⏱ Тривалість", `ed:${sessionId}`)
+        .text("👥 Учасники", `pl:${sessionId}`)
         .row()
         .text("❌ Скасувати дату", `cx:${sessionId}`)
         .row();
@@ -229,6 +245,81 @@ export function createBot(db: Db, token: string): Bot {
         return;
       }
 
+      case "edit_start": {
+        const parsed = parseDateTime(text, kyivDateParts(new Date()));
+        if (!parsed) {
+          await ask("Не розумію. Напишіть дату й час, наприклад <code>21.12 18:00</code>");
+          return;
+        }
+        const start = combineStart(parsed.date, parsed.time, new Date());
+        if (!start.ok) {
+          await ask(
+            start.reason === "past"
+              ? "Цей час уже минув. Вкажіть майбутній."
+              : "Такого часу не існує (перехід на літній час). Вкажіть інший.",
+          );
+          return;
+        }
+        const sessionId = draft.data.sessionId as string;
+        const before = await getAdminSession(db, sessionId);
+        const updated = await updateSession(db, sessionId, { startsAt: start.startsAt });
+        await clearDraft(db, chatId);
+        if (!before || !updated) {
+          await ctx.reply("Дату не знайдено або вона скасована.", { reply_markup: menu });
+          return;
+        }
+        const guests = await getParticipants(db, sessionId);
+        let report = `✅ Час змінено: <b>${esc(when(updated.startsAt))}</b>`;
+        if (guests.length > 0) {
+          const result = await notifyRescheduled(guests, updated, before.startsAt);
+          report += `\nЛисти учасникам: надіслано ${result.sent}`;
+          if (result.failed > 0) {
+            report += `\n⚠️ Не вдалося надіслати: ${result.failed}. Повідомте їх самі.`;
+          }
+        }
+        await ctx.reply(report, HTML);
+        await showCard(ctx, sessionId, false);
+        return;
+      }
+
+      case "edit_price": {
+        const priceKop = parsePriceKop(text);
+        if (!priceKop) {
+          await ask("Вкажіть ціну числом від 1 до 100000, наприклад <code>1800</code>");
+          return;
+        }
+        const sessionId = draft.data.sessionId as string;
+        const updated = await updateSession(db, sessionId, { priceKop });
+        await clearDraft(db, chatId);
+        if (!updated) {
+          await ctx.reply("Дату не знайдено або вона скасована.", { reply_markup: menu });
+          return;
+        }
+        await ctx.reply(
+          `✅ Нова ціна: <b>${esc(formatUah(priceKop))}</b>. Вона діє для нових записів, оплачені не змінюються.`,
+          HTML,
+        );
+        await showCard(ctx, sessionId, false);
+        return;
+      }
+
+      case "edit_duration": {
+        const durationMin = parseDuration(text);
+        if (!durationMin) {
+          await ask("Вкажіть тривалість у хвилинах, від 30 до 480, наприклад <code>120</code>");
+          return;
+        }
+        const sessionId = draft.data.sessionId as string;
+        const updated = await updateSession(db, sessionId, { durationMin });
+        await clearDraft(db, chatId);
+        if (!updated) {
+          await ctx.reply("Дату не знайдено або вона скасована.", { reply_markup: menu });
+          return;
+        }
+        await showCard(ctx, sessionId, false);
+        return;
+      }
+
       default:
         await ask("Натисніть кнопку під повідомленням: «Створити» або «Скасувати».");
     }
@@ -290,10 +381,108 @@ export function createBot(db: Db, token: string): Bot {
     });
   });
 
+  const startEdit = (prefix: string, step: string, prompt: string) =>
+    bot.callbackQuery(new RegExp(`^${prefix}:([0-9a-f-]{36})$`), async (ctx) => {
+      await ctx.answerCallbackQuery();
+      await saveDraft(db, chatIdOf(ctx), step, { sessionId: ctx.match[1] });
+      await ctx.reply(prompt, { ...HTML, reply_markup: cancelKeyboard });
+    });
+
+  startEdit(
+    "et",
+    "edit_start",
+    "Нова дата й час? Напишіть, наприклад, <code>21.12 18:00</code>. Учасникам піде лист про зміну.",
+  );
+  startEdit(
+    "ep",
+    "edit_price",
+    "Нова ціна за місце в гривнях? Діє для нових записів, оплачені не змінюються.",
+  );
+  startEdit("ed", "edit_duration", "Тривалість у хвилинах? Наприклад <code>120</code>");
+
+  bot.callbackQuery(/^pl:([0-9a-f-]{36})$/, async (ctx) => {
+    await ctx.answerCallbackQuery();
+    const sessionId = ctx.match[1];
+    const session = await getAdminSession(db, sessionId);
+    if (!session) {
+      await ctx.editMessageText("Дату не знайдено.");
+      return;
+    }
+    const guests = await getParticipants(db, sessionId);
+    const keyboard = new InlineKeyboard();
+    guests.forEach((g, i) =>
+      keyboard.text(`${i + 1}. ${g.name} · ${pluralSeats(g.seats)}`, `pp:${g.id}`).row(),
+    );
+    keyboard.text("⬅️ Назад", `sc:${sessionId}`);
+    await ctx.editMessageText(
+      guests.length === 0
+        ? `<b>${esc(when(session.startsAt))}</b>\nУчасників поки немає.`
+        : `<b>${esc(when(session.startsAt))}</b>\nОберіть учасника:`,
+      { ...HTML, reply_markup: keyboard },
+    );
+  });
+
+  bot.callbackQuery(/^pp:([0-9a-f-]{36})$/, async (ctx) => {
+    await ctx.answerCallbackQuery();
+    const booking = await getBooking(db, ctx.match[1]);
+    if (!booking) {
+      await ctx.editMessageText("Запис не знайдено.");
+      return;
+    }
+    const keyboard = new InlineKeyboard();
+    if (booking.status === "paid" || booking.status === "needs_attention") {
+      keyboard.text("❌ Скасувати запис", `bc:${booking.id}`).row();
+    }
+    keyboard.text("⬅️ До учасників", `pl:${booking.sessionId}`);
+    await ctx.editMessageText(
+      `${participantLine(booking)}\nСума: ${esc(formatUah(booking.amountKop))}\nСтатус: ${esc(booking.status)}`,
+      { ...HTML, reply_markup: keyboard },
+    );
+  });
+
+  bot.callbackQuery(/^bc:([0-9a-f-]{36})$/, async (ctx) => {
+    await ctx.answerCallbackQuery();
+    const booking = await getBooking(db, ctx.match[1]);
+    if (!booking) {
+      await ctx.editMessageText("Запис не знайдено.");
+      return;
+    }
+    await ctx.editMessageText(
+      `Скасувати запис <b>${esc(booking.name)}</b> (${esc(pluralSeats(booking.seats))})? Місця звільняться, клієнт отримає лист. Кошти (${esc(formatUah(booking.amountKop))}) потрібно повернути вручну.`,
+      {
+        ...HTML,
+        reply_markup: new InlineKeyboard()
+          .text("❌ Так, скасувати", `bcy:${booking.id}`)
+          .text("⬅️ Назад", `pp:${booking.id}`),
+      },
+    );
+  });
+
+  bot.callbackQuery(/^bcy:([0-9a-f-]{36})$/, async (ctx) => {
+    await ctx.answerCallbackQuery();
+    const cancelled = await cancelBooking(db, ctx.match[1]);
+    if (!cancelled) {
+      await ctx.editMessageText("Запис не знайдено або вже скасовано.");
+      return;
+    }
+    const session = await getAdminSession(db, cancelled.sessionId);
+    let report = `❌ Запис скасовано: ${participantLine(cancelled)}\nПоверніть клієнту <b>${esc(formatUah(cancelled.amountKop))}</b>.`;
+    if (session) {
+      const result = await notifyCancelled([cancelled], session);
+      report += result.sent > 0
+        ? "\nЛист клієнту надіслано."
+        : "\n⚠️ Лист клієнту не надіслано, повідомте його самі.";
+    }
+    await ctx.editMessageText(report, {
+      ...HTML,
+      reply_markup: new InlineKeyboard().text("⬅️ До учасників", `pl:${cancelled.sessionId}`),
+    });
+  });
+
   bot.callbackQuery(/^cx:([0-9a-f-]{36})$/, async (ctx) => {
     await ctx.answerCallbackQuery();
     await ctx.editMessageText(
-      "Скасувати цю дату? Нові записи стануть неможливими. Гроші учасникам автоматично <b>не повертаються</b>: ви побачите список, кому повернути.",
+      "Скасувати цю дату? Нові записи стануть неможливими. Учасникам піде лист про скасування. Гроші автоматично <b>не повертаються</b>: ви побачите список, кому повернути.",
       {
         ...HTML,
         reply_markup: new InlineKeyboard()
@@ -312,10 +501,15 @@ export function createBot(db: Db, token: string): Bot {
       await ctx.editMessageText("Дату не знайдено або вже скасовано.");
       return;
     }
-    const refunds =
+    let refunds =
       participants.length === 0
         ? "Оплачених записів не було."
         : `Потрібно повернути кошти (${participants.length}):\n${participants.map(participantLine).join("\n")}`;
+    if (participants.length > 0) {
+      const result = await notifyCancelled(participants, cancelled);
+      refunds += `\n\nЛисти учасникам: надіслано ${result.sent}`;
+      if (result.failed > 0) refunds += `\n⚠️ Не вдалося надіслати: ${result.failed}. Повідомте їх самі.`;
+    }
     await ctx.editMessageText(
       `❌ Дату скасовано: <b>${esc(when(cancelled.startsAt))}</b>\n\n${refunds}`,
       HTML,

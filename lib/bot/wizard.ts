@@ -70,3 +70,22 @@ export function combineStart(
   if (startsAt.getTime() <= now.getTime()) return { ok: false, reason: "past" };
   return { ok: true, startsAt };
 }
+
+// "21.12 18:00", "21.12.2026 18:00". The date part reuses parseDate's rules.
+export function parseDateTime(
+  input: string,
+  today: YMD,
+): { date: YMD; time: { hour: number; minute: number } } | null {
+  const parts = input.trim().split(/\s+/);
+  if (parts.length < 2) return null;
+  const time = parseTime(parts[parts.length - 1]);
+  const date = parseDate(parts.slice(0, -1).join(" "), today);
+  return date && time ? { date, time } : null;
+}
+
+// Minutes, 30 to 480 (8 hours).
+export function parseDuration(input: string): number | null {
+  if (!/^\d{2,3}$/.test(input.trim())) return null;
+  const value = Number(input.trim());
+  return value >= 30 && value <= 480 ? value : null;
+}

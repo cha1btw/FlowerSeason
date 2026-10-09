@@ -72,3 +72,13 @@ test("bookingView maps database status to what the customer sees", () => {
   assert.equal(bookingView({ status: "failed", holdExpiresAt: future }, now), "failed");
   assert.equal(bookingView({ status: "needs_attention", holdExpiresAt: past }, now), "needs_attention");
 });
+
+test("a cancelled booking, or a paid booking on a cancelled date, shows as cancelled", () => {
+  const now = new Date("2026-11-20T10:00:00Z");
+  const hold = new Date("2026-11-20T10:05:00Z");
+  assert.equal(bookingView({ status: "cancelled", holdExpiresAt: hold }, now), "cancelled");
+  assert.equal(bookingView({ status: "paid", holdExpiresAt: hold }, now, "cancelled"), "cancelled");
+  assert.equal(bookingView({ status: "needs_attention", holdExpiresAt: hold }, now, "cancelled"), "cancelled");
+  assert.equal(bookingView({ status: "pending", holdExpiresAt: hold }, now, "cancelled"), "processing");
+  assert.equal(bookingView({ status: "paid", holdExpiresAt: hold }, now, "open"), "paid");
+});

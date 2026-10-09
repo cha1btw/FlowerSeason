@@ -4,6 +4,8 @@ import {
   combineStart,
   parseCapacity,
   parseDate,
+  parseDateTime,
+  parseDuration,
   parsePriceKop,
   parseTime,
 } from "../lib/bot/wizard.ts";
@@ -73,4 +75,27 @@ test("combineStart rejects past times and times skipped by the clock change", ()
 
   const gap = combineStart({ year: 2027, month: 3, day: 28 }, { hour: 3, minute: 30 }, now);
   assert.deepEqual(gap, { ok: false, reason: "nonexistent" });
+});
+
+test("date and time can be typed in one message", () => {
+  assert.deepEqual(parseDateTime("21.12 18:00", october), {
+    date: { year: 2026, month: 12, day: 21 },
+    time: { hour: 18, minute: 0 },
+  });
+  assert.deepEqual(parseDateTime("21.12.2027 9:30", october), {
+    date: { year: 2027, month: 12, day: 21 },
+    time: { hour: 9, minute: 30 },
+  });
+  for (const bad of ["21.12", "18:00", "abc def", "31.02 18:00", "21.12 25:00", ""]) {
+    assert.equal(parseDateTime(bad, october), null, bad);
+  }
+});
+
+test("duration is whole minutes from 30 to 480", () => {
+  assert.equal(parseDuration("120"), 120);
+  assert.equal(parseDuration("30"), 30);
+  assert.equal(parseDuration("480"), 480);
+  for (const bad of ["29", "481", "abc", "1.5", "5", ""]) {
+    assert.equal(parseDuration(bad), null, bad);
+  }
 });

@@ -68,6 +68,42 @@ export function reminderEmail(d: Details, statusUrl: string): Email {
   };
 }
 
+export function rescheduleEmail(d: Details, oldStartsAt: Date, statusUrl: string): Email {
+  const summary = `${when(d.startsAt)}, ${pluralSeats(d.seats)}`;
+  return {
+    to: d.email,
+    subject: `Зміна часу майстер-класу: тепер ${formatSessionDate(d.startsAt)} о ${formatSessionTime(d.startsAt)}`,
+    html: layout(
+      "Змінився час.",
+      [
+        `${escapeHtml(d.name)}, ми змінили час майстер-класу, на який ви записані.`,
+        `Було: ${escapeHtml(when(oldStartsAt))}`,
+        `<strong>Тепер: ${escapeHtml(summary)}</strong>`,
+        "Якщо новий час вам не підходить, напишіть нам: підберемо іншу дату або повернемо кошти.",
+      ],
+      statusUrl,
+    ),
+    text: `${d.name}, ми змінили час майстер-класу.\n\nБуло: ${when(oldStartsAt)}\nТепер: ${summary}\n\nЯкщо час не підходить, напишіть нам.\nДеталі: ${statusUrl}`,
+  };
+}
+
+// Used both when one booking is cancelled and when the whole date is.
+export function cancellationEmail(d: Details, statusUrl: string): Email {
+  return {
+    to: d.email,
+    subject: `Запис на майстер-клас ${formatSessionDate(d.startsAt)} скасовано`,
+    html: layout(
+      "Запис скасовано.",
+      [
+        `${escapeHtml(d.name)}, ваш запис на майстер-клас ${escapeHtml(when(d.startsAt))} скасовано.`,
+        "Щодо повернення коштів з вами зв’яжеться студія. Якщо маєте питання, напишіть нам у Telegram.",
+      ],
+      statusUrl,
+    ),
+    text: `${d.name}, ваш запис на майстер-клас ${when(d.startsAt)} скасовано.\n\nЩодо повернення коштів з вами зв’яжеться студія.\nДеталі: ${statusUrl}`,
+  };
+}
+
 // Telegram HTML message for the owner. `esc` is escapeTelegramHtml, injected so
 // this module stays free of Telegram specifics.
 export function adminPaymentMessage(
