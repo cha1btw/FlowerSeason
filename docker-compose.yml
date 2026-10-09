@@ -1,0 +1,16 @@
+# Local Postgres for development and tests only (not used in production).
+# Start: docker compose up -d
+# One-time: docker compose exec db createdb -U flowerseason flowerseason_test
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: flowerseason
+      POSTGRES_PASSWORD: flowerseason
+      POSTGRES_DB: flowerseason
+    ports:
+      - "5433:5432"
+    volumes:
+      - flowerseason-pgdata:/var/lib/postgresql/data
+volumes:
+  flowerseason-pgdata:

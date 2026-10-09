@@ -2,19 +2,25 @@
   "name": "christmas-by-flower-season",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "next build --webpack",
     "start": "next start",
     "lint": "next lint",
-    "test": "node --test tests/**/*.test.mjs",
-    "typecheck": "tsc --noEmit"
+    "test": "node --env-file-if-exists=.env.local --test --test-concurrency=1 \"tests/**/*.test.mjs\" \"tests/**/*.test.ts\"",
+    "typecheck": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "node --env-file-if-exists=.env.local scripts/migrate.ts"
   },
   "dependencies": {
     "@vercel/analytics": "^1.6.1",
+    "drizzle-orm": "^0.45.4",
     "framer-motion": "^12.23.24",
+    "grammy": "^1.46.0",
     "lucide-react": "^0.548.0",
     "next": "16.3.8",
+    "postgres": "^3.4.9",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },
@@ -23,6 +29,7 @@
     "@types/node": "^24.7.0",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
+    "drizzle-kit": "^0.31.11",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.3.3",
     "typescript": "^5.9.3"

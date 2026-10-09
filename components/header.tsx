@@ -6,10 +6,16 @@ import type { SiteContent } from "@/lib/content";
 
 type HeaderProps = {
   brand: SiteContent["brand"];
-  navigation: SiteContent["navigation"];
+  navigation: {
+    openLabel: string;
+    closeLabel: string;
+    menuLabel: string;
+    links: ReadonlyArray<{ label: string; href: string }>;
+  };
+  homeHref?: string;
 };
 
-export function Header({ brand, navigation }: HeaderProps) {
+export function Header({ brand, navigation, homeHref = "#top" }: HeaderProps) {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -31,7 +37,7 @@ export function Header({ brand, navigation }: HeaderProps) {
     <header className="fixed inset-x-0 top-0 z-50 border-b border-line bg-canvas/90 text-ink backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-[1600px] items-center justify-between px-5 sm:px-8 lg:h-20 lg:px-12">
         <a
-          href="#top"
+          href={homeHref}
           className="max-w-[14rem] text-[11px] font-medium leading-tight tracking-[0.16em] transition-opacity active:opacity-55 sm:max-w-none sm:text-xs"
           onClick={() => setOpen(false)}
         >

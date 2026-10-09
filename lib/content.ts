@@ -17,6 +17,44 @@ export const siteContent = {
       "Святкове оформлення, корпоративні подарунки, Christmas workshops і flower bar для команд, клієнтів та подій.",
     ogImage: "/og.jpg",
   },
+  gateway: {
+    seo: {
+      title: "Flower Season — Christmas 2026 / 27",
+      description:
+        "Святкове оформлення, подарунки та майстер-класи від Flower Season у Києві. Для бізнесу та для приватних гостей.",
+    },
+    eyebrow: "SEASON 2026 / 27",
+    prompt: "ОБЕРІТЬ НАПРЯМ",
+    headline: "Святковий сезон\nвід Flower Season",
+    options: [
+      {
+        id: "business",
+        index: "01",
+        title: "FOR BUSINESS",
+        tags: "Оформлення · Подарунки · Workshops",
+        focus: "50% 62%",
+        description:
+          "Святкове оформлення, корпоративні подарунки та майстер-класи для вашої команди.",
+        cta: "ПЕРЕЙТИ",
+        href: "/business",
+        image: "/media/hero.webp",
+        imageAlt: "Різдвяний вінок зі свічкою та сухими цитрусами",
+      },
+      {
+        id: "individuals",
+        index: "02",
+        title: "FOR INDIVIDUALS",
+        tags: "Відкриті майстер-класи · Запис онлайн",
+        focus: "50% 55%",
+        description:
+          "Відкриті новорічні майстер-класи: оберіть дату, запишіться й оплатіть онлайн.",
+        cta: "ОБРАТИ ДАТУ",
+        href: "/workshops",
+        image: "/media/workshops-main.webp",
+        imageAlt: "Учасниці створюють різдвяні вінки на майстер-класі",
+      },
+    ],
+  },
   navigation: {
     openLabel: "Відкрити меню",
     closeLabel: "Закрити меню",
@@ -24,6 +62,7 @@ export const siteContent = {
     links: [
       { label: "Decor", href: "#decor" },
       { label: "Workshops", href: "#workshops" },
+      { label: "For individuals", href: "/workshops" },
       { label: "Gifts", href: "#gifts" },
       { label: "Projects", href: "#projects" },
       { label: "Contact", href: "#contact" },
@@ -127,6 +166,8 @@ export const siteContent = {
     ],
     note: "Підходить для камерних команд і подій до 100+ гостей.",
     cta: "ОРГАНІЗУВАТИ МАЙСТЕР-КЛАС",
+    publicCta: "ЗАПИС НА ВІДКРИТІ МАЙСТЕР-КЛАСИ",
+    publicHref: "/workshops",
     interest: "workshops" as InterestValue,
     media: {
       image: "/media/workshops-main.webp",
@@ -280,6 +321,192 @@ export const siteContent = {
     copyright: "© FLOWER SEASON",
     location: "KYIV · UKRAINE",
     backToTop: "НАГОРУ ↑",
+  },
+  // DRAFT copy for the public booking page: the owner must confirm every claim
+  // (what is included, location, duration) before sales open.
+  workshopsPage: {
+    seo: {
+      title: "Новорічні майстер-класи — Flower Season",
+      description:
+        "Запишіться на різдвяний майстер-клас Flower Season у Києві: оберіть дату, оплатіть онлайн і створіть власний святковий декор.",
+    },
+    navigation: {
+      openLabel: "Відкрити меню",
+      closeLabel: "Закрити меню",
+      menuLabel: "Навігація",
+      links: [
+        { label: "About", href: "/workshops#about" },
+        { label: "How it works", href: "/workshops#how" },
+        { label: "Schedule", href: "/workshops#schedule" },
+        { label: "For business", href: "/business" },
+      ],
+    },
+    hero: {
+      eyebrow: "NEW YEAR WORKSHOPS 2026 / 27",
+      title: "CHRISTMAS\nWORKSHOP",
+      subtitle:
+        "Створіть власний різдвяний декор разом із флористами Flower Season. Оберіть зручну дату та запишіться онлайн.",
+      cta: "ОБРАТИ ДАТУ",
+      ctaHref: "#schedule",
+      image: "/media/workshops-main.webp",
+      imageAlt: "Учасниці створюють різдвяні вінки на майстер-класі",
+      nextDate: "НАЙБЛИЖЧА ДАТА",
+      seatsLeft: "ЛИШИЛОСЬ",
+    },
+    about: {
+      id: "about",
+      index: "01",
+      title: "ABOUT",
+      subtitle: "Christmas, створений власноруч.",
+      description:
+        "Камерний майстер-клас, на якому флористи Flower Season покроково покажуть, як зібрати святкову композицію. Ви забираєте її додому.",
+      details: [
+        "Камерна група",
+        "Матеріали й інструменти надаємо на місці",
+        "Не потрібен попередній досвід",
+      ],
+      image: "/media/workshops-detail.webp",
+      imageAlt: "Робота зі стрічками під час майстер-класу",
+      gallery: [
+        {
+          src: "/media/workshops-kit.webp",
+          alt: "Фірмові коробки Flower Season з матеріалами для майстер-класу",
+        },
+        {
+          src: "/media/create-workshops.webp",
+          alt: "Різдвяна композиція, створена на майстер-класі",
+        },
+      ],
+      video: "/media/workshop.mp4",
+      videoPoster: "/media/workshops-kit.webp",
+      videoLabel: "Процес створення різдвяного вінка",
+    },
+    how: {
+      id: "how",
+      index: "02",
+      title: "HOW IT WORKS",
+      subtitle: "Від вибору дати до готової композиції.",
+      steps: [
+        {
+          number: "01",
+          title: "Оберіть дату",
+          description:
+            "Подивіться розклад, виберіть зручний день і кількість місць.",
+        },
+        {
+          number: "02",
+          title: "Оплатіть онлайн",
+          description:
+            "Оплата карткою на захищеній сторінці банку, без реєстрації. Місця утримуються за вами 15 хвилин.",
+        },
+        {
+          number: "03",
+          title: "Приходьте й творіть",
+          description:
+            "Підтвердження й нагадування прийдуть на email. Решту ми підготуємо самі.",
+        },
+      ],
+    },
+    schedule: {
+      id: "schedule",
+      index: "03",
+      title: "SCHEDULE",
+      subtitle:
+        "Оберіть дату. Поки ви оплачуєте, місця утримуються за вами 15 хвилин.",
+      minutesSuffix: "хв",
+      seatsLeftSuffix: "залишилось",
+      soldOut: "МІСЦЬ НЕМАЄ",
+      empty: {
+        title: "Найближчих дат поки немає",
+        description:
+          "Нові дати з’являються регулярно. Напишіть нам у Telegram, і ми повідомимо, коли відкриємо запис.",
+        cta: "НАПИСАТИ В TELEGRAM",
+      },
+      loadError:
+        "Розклад тимчасово недоступний. Спробуйте оновити сторінку або напишіть нам у Telegram.",
+    },
+    help: {
+      eyebrow: "ЗАЛИШИЛИСЬ ПИТАННЯ?",
+      title: "Напишіть нам",
+      description:
+        "Допоможемо обрати дату або домовимось про окремий формат для компанії.",
+      telegram: "TELEGRAM",
+      business: "FOR BUSINESS",
+      businessHref: "/business",
+    },
+    form: {
+      legend: "Оберіть дату",
+      ticket: "ВАШ ЗАПИС",
+      emptySelection: "Оберіть дату зі списку, щоб записатися.",
+      selected: "ОБРАНА ДАТА",
+      fields: {
+        name: { label: "Ім’я", placeholder: "Ваше ім’я" },
+        phone: { label: "Телефон", placeholder: "+380 50 123 45 67" },
+        email: {
+          label: "Email",
+          placeholder: "name@example.com",
+          hint: "Надішлемо підтвердження та нагадування",
+        },
+        seats: { label: "Кількість місць" },
+      },
+      consentPrefix: "Я погоджуюсь з",
+      consentOffer: "публічною офертою",
+      consentAnd: "та",
+      consentPrivacy: "політикою конфіденційності",
+      total: "РАЗОМ",
+      submit: "ПЕРЕЙТИ ДО ОПЛАТИ",
+      submitting: "ПЕРЕНАПРАВЛЯЄМО…",
+      secure: "Оплата карткою на захищеній сторінці банку.",
+    },
+    errors: {
+      invalid: "Перевірте, будь ласка, ім’я, телефон та email.",
+      consent: "Щоб продовжити, підтвердьте згоду з офертою.",
+      unavailable: "Ця дата вже недоступна. Оберіть іншу.",
+      soldOut: "На жаль, цієї кількості місць не залишилось.",
+      seatsLeft: "На цю дату залишилось місць:",
+      payment:
+        "Не вдалося розпочати оплату. Спробуйте ще раз або напишіть нам у Telegram.",
+      generic: "Щось пішло не так. Спробуйте ще раз.",
+    },
+    booking: {
+      eyebrow: "ЗАПИС НА МАЙСТЕР-КЛАС",
+      back: "ДО РОЗКЛАДУ",
+      pay: "ПЕРЕЙТИ ДО ОПЛАТИ",
+      retry: "ОБРАТИ ІНШУ ДАТУ",
+      labels: {
+        date: "Дата",
+        time: "Час",
+        seats: "Місць",
+        amount: "Сума",
+      },
+      views: {
+        paid: {
+          title: "Ви записані.",
+          description:
+            "Оплату отримано. Підтвердження надіслано на вашу пошту, а напередодні ми нагадаємо про зустріч.",
+        },
+        processing: {
+          title: "Чекаємо на оплату.",
+          description:
+            "Місця утримуються за вами 15 хвилин. Щойно банк підтвердить оплату, ця сторінка оновиться автоматично.",
+        },
+        expired: {
+          title: "Час на оплату минув.",
+          description:
+            "Місця повернулись у продаж. Якщо ви вже встигли оплатити, ми підтвердимо запис найближчим часом, перевірте пошту. Якщо ні, оберіть дату ще раз.",
+        },
+        failed: {
+          title: "Оплата не завершена.",
+          description:
+            "Кошти не списано. Спробуйте ще раз або оберіть іншу дату.",
+        },
+        needs_attention: {
+          title: "Оплату отримано.",
+          description:
+            "Нам потрібно уточнити деталі вашого запису. Ми зв’яжемося з вами найближчим часом, а якщо захочете, одразу напишіть нам у Telegram.",
+        },
+      },
+    },
   },
 } as const;
 

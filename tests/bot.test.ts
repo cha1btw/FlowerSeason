@@ -1,0 +1,279 @@
+// Drives the real bot with fake Telegram updates. Outgoing API calls are
+// captured instead of being sent, so no network or token is needed.
+import assert from "node:assert/strict";
+import { after, before, beforeEach, describe, test } from "node:test";
+import { sql } from "drizzle-orm";
+import type { Bot } from "grammy";
+import { confirmPayment, createBooking } from "../lib/booking/service.ts";
+import { createBot } from "../lib/bot/index.ts";
+import { createDb, type Db } from "../lib/db/index.ts";
+import { runMigrations } from "../lib/db/migrate.ts";
+import { sessions } from "../lib/db/schema.ts";
+import { formatSessionDate, formatSessionTime } from "../lib/time.ts";
+
+const url = process.env.TEST_DATABASE_URL;
+const ADMIN = 111;
+const STRANGER = 999;
+
+type Call = { method: string; payload: Record<string, unknown> };
+
+describe("telegram bot", { skip: !url && "TEST_DATABASE_URL is not set" }, () => {
+  let db: Db;
+  let bot: Bot;
+  let calls: Call[];
+  let updateId = 1;
+
+  before(async () => {
+    await runMigrations(url!);
+    db = createDb(url!, 5);
+  });
+  after(async () => {
+    await db.$client.end();
+  });
+
+  beforeEach(async () => {
+    await db.execute(sql`truncate bookings, sessions, bot_drafts`);
+    process.env.ADMIN_TELEGRAM_IDS = String(ADMIN);
+    calls = [];
+
+    bot = createBot(db, "123:TEST");
+    bot.botInfo = {
+      id: 1,
+      is_bot: true,
+      first_name: "Test",
+      username: "test_bot",
+      can_join_groups: true,
+      can_read_all_group_messages: false,
+      supports_inline_queries: false,
+      can_connect_to_business: false,
+      has_main_web_app: false,
+    } as typeof bot.botInfo;
+    bot.api.config.use(async (_prev, method, payload) => {
+      calls.push({ method, payload: payload as Record<string, unknown> });
+      return { ok: true, result: true } as never;
+    });
+  });
+
+  const chat = (id: number) => ({ id, type: "private" as const, first_name: "T" });
+  const from = (id: number) => ({ id, is_bot: false, first_name: "T" });
+
+  async function say(text: string, userId = ADMIN) {
+    const isCommand = text.startsWith("/");
+    await bot.handleUpdate({
+      update_id: updateId++,
+      message: {
+        message_id: updateId,
+        date: Math.floor(Date.now() / 1000),
+        chat: chat(userId),
+        from: from(userId),
+        text,
+        ...(isCommand
+          ? { entities: [{ type: "bot_command" as const, offset: 0, length: text.split(" ")[0].length }] }
+          : {}),
+      },
+    });
+  }
+
+  async function tap(data: string, userId = ADMIN) {
+    await bot.handleUpdate({
+      update_id: updateId++,
+      callback_query: {
+        id: String(updateId),
+        from: from(userId),
+        chat_instance: "x",
+        data,
+        message: {
+          message_id: 5,
+          date: Math.floor(Date.now() / 1000),
+          chat: chat(userId),
+          text: "old",
+        },
+      },
+    });
+  }
+
+  const texts = () =>
+    calls
+      .filter((c) => c.method === "sendMessage" || c.method === "editMessageText")
+      .map((c) => String(c.payload.text));
+  const lastText = () => texts().at(-1) ?? "";
+  const buttons = () => {
+    const last = [...calls].reverse().find((c) => c.payload.reply_markup);
+    const markup = last?.payload.reply_markup as
+      | { inline_keyboard?: { text: string; callback_data?: string }[][] }
+      | undefined;
+    return markup?.inline_keyboard?.flat() ?? [];
+  };
+
+  async function createViaWizard() {
+    await say("➕ Нова дата");
+    await say("20.12");
+    await say("18:00");
+    await say("8");
+    await say("1800");
+    await tap("wz:ok");
+    const [session] = await db.select().from(sessions);
+    return session;
+  }
+
+  test("a stranger gets a polite refusal and cannot start the wizard", async () => {
+    await say("/start", STRANGER);
+    assert.match(lastText(), /призначений для адміністратора/);
+
+    await say("➕ Нова дата", STRANGER);
+    assert.equal(
+      (await db.execute(sql`select count(*)::int as n from bot_drafts`))[0].n,
+      0,
+    );
+  });
+
+  test("the owner is greeted with the menu", async () => {
+    await say("/start");
+    const reply = calls.find((c) => c.method === "sendMessage");
+    assert.ok(reply);
+    assert.ok(JSON.stringify(reply.payload.reply_markup).includes("Нова дата"));
+  });
+
+  test("the wizard creates a date from four answers", async () => {
+    await say("➕ Нова дата");
+    assert.match(lastText(), /Крок 1\/4/);
+    await say("20.12");
+    assert.match(lastText(), /Крок 2\/4/);
+    await say("18:00");
+    assert.match(lastText(), /Крок 3\/4/);
+    await say("8");
+    assert.match(lastText(), /Крок 4\/4/);
+    await say("1800");
+    assert.match(lastText(), /Створити дату\?/);
+    assert.ok(buttons().some((b) => b.callback_data === "wz:ok"));
+
+    await tap("wz:ok");
+    assert.match(lastText(), /Дату створено/);
+
+    const [session] = await db.select().from(sessions);
+    assert.equal(session.capacity, 8);
+    assert.equal(session.priceKop, 180_000);
+    assert.equal(formatSessionDate(session.startsAt), "20 грудня");
+    assert.equal(formatSessionTime(session.startsAt), "18:00");
+    assert.equal(session.status, "open");
+  });
+
+  test("bad input keeps the wizard on the same step", async () => {
+    await say("➕ Нова дата");
+    await say("вчора");
+    assert.match(lastText(), /Не розумію дату/);
+    await say("20.12");
+    assert.match(lastText(), /Крок 2\/4/);
+    await say("25:99");
+    assert.match(lastText(), /Не розумію час/);
+  });
+
+  test("cancelling the wizard creates nothing", async () => {
+    await say("➕ Нова дата");
+    await say("20.12");
+    await tap("wz:cancel");
+    await say("18:00");
+    assert.equal((await db.select().from(sessions)).length, 0);
+    assert.match(lastText(), /меню/i);
+  });
+
+  test("confirming twice does not create a second date", async () => {
+    await createViaWizard();
+    await tap("wz:ok");
+    assert.equal((await db.select().from(sessions)).length, 1);
+  });
+
+  test("the schedule lists dates and the card shows participants", async () => {
+    const session = await createViaWizard();
+    const guest = await createBooking(db, {
+      sessionId: session.id,
+      name: "Олена",
+      phone: "+380501234567",
+      email: "olena@example.com",
+      seats: 2,
+    });
+    assert.ok(guest.ok);
+    await confirmPayment(db, guest.booking.id);
+
+    await say("📅 Розклад");
+    const open = buttons().find((b) => b.callback_data === `sc:${session.id}`);
+    assert.ok(open, "schedule has a button for the date");
+    assert.match(open.text, /2\/8/);
+
+    await tap(`sc:${session.id}`);
+    assert.match(lastText(), /Олена/);
+    assert.match(lastText(), /\+380501234567/);
+    assert.match(lastText(), /Продано: <b>2<\/b>/);
+  });
+
+  test("sales can be closed and reopened from the card", async () => {
+    const session = await createViaWizard();
+
+    await tap(`st:${session.id}`);
+    assert.equal((await db.select().from(sessions))[0].status, "closed");
+    assert.match(lastText(), /Продаж закрито/);
+
+    await tap(`st:${session.id}`);
+    assert.equal((await db.select().from(sessions))[0].status, "open");
+  });
+
+  test("seats can be raised, but not below what is sold", async () => {
+    const session = await createViaWizard();
+    const guest = await createBooking(db, {
+      sessionId: session.id,
+      name: "Олена",
+      phone: "+380501234567",
+      email: "olena@example.com",
+      seats: 3,
+    });
+    assert.ok(guest.ok);
+    await confirmPayment(db, guest.booking.id);
+
+    await tap(`cap:${session.id}`);
+    await say("2");
+    assert.match(lastText(), /Не можна менше/);
+    assert.equal((await db.select().from(sessions))[0].capacity, 8);
+
+    await say("12");
+    assert.equal((await db.select().from(sessions))[0].capacity, 12);
+  });
+
+  test("cancelling a date lists who must be refunded", async () => {
+    const session = await createViaWizard();
+    const guest = await createBooking(db, {
+      sessionId: session.id,
+      name: "Олена",
+      phone: "+380501234567",
+      email: "olena@example.com",
+      seats: 1,
+    });
+    assert.ok(guest.ok);
+    await confirmPayment(db, guest.booking.id);
+
+    await tap(`cx:${session.id}`);
+    assert.match(lastText(), /не повертаються/);
+    assert.equal((await db.select().from(sessions))[0].status, "open", "asking is not cancelling");
+
+    await tap(`cxy:${session.id}`);
+    assert.equal((await db.select().from(sessions))[0].status, "cancelled");
+    assert.match(lastText(), /Потрібно повернути кошти \(1\)/);
+    assert.match(lastText(), /olena@example.com/);
+  });
+
+  test("analytics reports revenue", async () => {
+    const session = await createViaWizard();
+    const guest = await createBooking(db, {
+      sessionId: session.id,
+      name: "Олена",
+      phone: "+380501234567",
+      email: "olena@example.com",
+      seats: 2,
+    });
+    assert.ok(guest.ok);
+    await confirmPayment(db, guest.booking.id);
+
+    await say("📊 Аналітика");
+    assert.match(lastText(), /Виручка всього: <b>3 600 ₴<\/b>/);
+    assert.match(lastText(), /2\/8/);
+  });
+});

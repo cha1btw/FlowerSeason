@@ -2,22 +2,12 @@
 
 import { siteContent, type InterestValue } from "@/lib/content";
 import type { ContactFormState } from "@/lib/contact-form-state";
+import { readField } from "@/lib/form";
+import { escapeTelegramHtml, sendTelegramHtml } from "@/lib/telegram";
 
 const interestLabels = new Map<InterestValue, string>(
   siteContent.contact.options.map((option) => [option.value, option.label]),
 );
-
-function readField(formData: FormData, key: string, maxLength: number) {
-  const value = formData.get(key);
-  return typeof value === "string" ? value.trim().slice(0, maxLength) : "";
-}
-
-function escapeTelegramHtml(value: string) {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;");
-}
 
 export async function sendTelegramMessage(
   _previousState: ContactFormState,
@@ -63,38 +53,14 @@ export async function sendTelegramMessage(
     `<b>Запит:</b> ${escapeTelegramHtml(message || "—")}`,
   ];
 
-  try {
-    const response = await fetch(
-      `https://api.telegram.org/bot${botToken}/sendMessage`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          chat_id: chatId,
-          text: lines.join("\n"),
-          parse_mode: "HTML",
-          disable_web_page_preview: true,
-        }),
-        cache: "no-store",
-      },
-    );
-
-    if (!response.ok) {
-      console.error("Telegram API returned an error.", await response.text());
-      return {
-        status: "error",
-        message:
-          "Не вдалося надіслати форму. Спробуйте ще раз або напишіть нам у Telegram.",
-      };
-    }
-
-    return { status: "success", message: siteContent.contact.success };
-  } catch (error) {
-    console.error("Telegram request failed.", error);
+  const sent = await sendTelegramHtml(chatId, lines.join("\n"));
+  if (!sent) {
     return {
       status: "error",
       message:
         "Не вдалося надіслати форму. Спробуйте ще раз або напишіть нам у Telegram.",
     };
   }
+
+  return { status: "success", message: siteContent.contact.success };
 }

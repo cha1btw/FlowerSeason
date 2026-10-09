@@ -18,16 +18,16 @@ const siteUrl = new URL(
 
 export const metadata: Metadata = {
   metadataBase: siteUrl,
-  title: siteContent.seo.title,
-  description: siteContent.seo.description,
+  title: siteContent.gateway.seo.title,
+  description: siteContent.gateway.seo.description,
   applicationName: siteContent.brand.name,
   alternates: { canonical: "/" },
   openGraph: {
     type: "website",
     locale: "uk_UA",
     url: "/",
-    title: siteContent.seo.title,
-    description: siteContent.seo.description,
+    title: siteContent.gateway.seo.title,
+    description: siteContent.gateway.seo.description,
     siteName: siteContent.brand.shortName,
     images: [
       {
@@ -40,8 +40,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: siteContent.seo.title,
-    description: siteContent.seo.description,
+    title: siteContent.gateway.seo.title,
+    description: siteContent.gateway.seo.description,
     images: [siteContent.seo.ogImage],
   },
   icons: {

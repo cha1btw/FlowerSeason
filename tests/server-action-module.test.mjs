@@ -20,7 +20,7 @@ test("a successful form submission opens an accessible confirmation dialog", () 
 });
 
 test("editorial galleries do not render repeated static image slots", () => {
-  const pageSource = readFileSync(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const pageSource = readFileSync(new URL("../app/business/page.tsx", import.meta.url), "utf8");
   const contentSource = readFileSync(new URL("../lib/content.ts", import.meta.url), "utf8");
 
   assert.doesNotMatch(pageSource, /gifts\.images\[2\]/);
@@ -29,7 +29,7 @@ test("editorial galleries do not render repeated static image slots", () => {
 });
 
 test("mobile galleries use full-width image rhythm instead of narrow side tiles", () => {
-  const pageSource = readFileSync(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const pageSource = readFileSync(new URL("../app/business/page.tsx", import.meta.url), "utf8");
 
   assert.match(pageSource, /col-span-12 aspect-\[4\/5\] overflow-hidden bg-line sm:col-span-5/);
   assert.match(pageSource, /col-span-12 mt-3 aspect-\[4\/3\] overflow-hidden bg-line/);
