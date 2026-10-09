@@ -1,23 +1,21 @@
 "use server";
 
+import { after } from "next/server";
 import { redirect } from "next/navigation";
 import { MAX_SEATS_PER_BOOKING } from "@/lib/booking/availability";
-import {
-  attachInvoice,
-  createBooking,
-  getBookingWithSession,
-  markFailed,
-} from "@/lib/booking/service";
+import { announceRequest } from "@/lib/booking/request-events";
+import { createBooking } from "@/lib/booking/service";
 import type { CheckoutFormState } from "@/lib/checkout-form-state";
 import { isEmail, isUuid, normalizePhone } from "@/lib/checkout-validation";
 import { siteContent } from "@/lib/content";
 import { getDb } from "@/lib/db";
 import { readField } from "@/lib/form";
-import { createInvoice } from "@/lib/payments";
 
 const { errors } = siteContent.workshopsPage;
 
-export async function startCheckout(
+// The customer leaves a request; the owner gets it in Telegram and sends the
+// payment link herself.
+export async function submitRequest(
   _previousState: CheckoutFormState,
   formData: FormData,
 ): Promise<CheckoutFormState> {
@@ -53,7 +51,7 @@ export async function startCheckout(
   }
   if (readField(formData, "consent", 5) !== "yes") return fail(errors.consent);
 
-  let paymentUrl: string;
+  let bookingId: string;
   try {
     const db = getDb();
     const result = await createBooking(db, {
@@ -77,38 +75,15 @@ export async function startCheckout(
       );
     }
 
-    let { booking } = result;
-    if (!booking.paymentUrl) {
-      const loaded = await getBookingWithSession(db, booking.id);
-      if (!loaded) return fail(errors.generic);
-
-      try {
-        const invoice = await createInvoice(booking, loaded.session);
-        const attached = await attachInvoice(
-          db,
-          booking.id,
-          invoice.invoiceId,
-          invoice.paymentUrl,
-        );
-        // Lost a race with a parallel request: use the invoice it stored.
-        const current = attached
-          ? { ...booking, paymentUrl: invoice.paymentUrl }
-          : (await getBookingWithSession(db, booking.id))?.booking;
-        if (!current?.paymentUrl) return fail(errors.payment);
-        booking = current;
-      } catch (error) {
-        console.error("Could not create a payment invoice.", error);
-        // No invoice means nothing can be paid, so give the seats back.
-        await markFailed(db, booking.id);
-        return fail(errors.payment);
-      }
-    }
-    paymentUrl = booking.paymentUrl!;
+    bookingId = result.booking.id;
+    // Sending the same form twice must not ping the owner twice. The emails and
+    // the Telegram message go out after the customer already has their answer.
+    if (!result.reused) after(() => announceRequest(db, result.booking.id));
   } catch (error) {
-    console.error("Checkout failed.", error);
+    console.error("Could not save the request.", error);
     return fail(errors.generic);
   }
 
   // redirect() works by throwing, so it must stay outside the try/catch above.
-  redirect(paymentUrl);
+  redirect(`/workshops/booking/${bookingId}`);
 }

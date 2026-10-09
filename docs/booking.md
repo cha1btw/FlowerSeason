@@ -1,40 +1,42 @@
-# Online booking for workshops (`/workshops`)
+# Online requests for workshops (`/workshops`)
 
-Customers pick a date on `/workshops`, pay by card without an account, and get an
-email. The owner manages everything from a Telegram bot. It all lives in this
-Next.js app: no second server.
+Customers pick a date on `/workshops` and leave a request without an account.
+The owner gets it in Telegram, sends the payment link herself (outside the
+site), and presses **Paid** in the bot. Everything lives in this Next.js app:
+no second server, and no online payments in the code.
 
 ## Site structure
 
-- `/` entry screen: choose **For business** (`/business`, the corporate landing) or
-  **For individuals** (`/workshops`, public booking). Copy lives in `lib/content.ts`
-  (`gateway`), so adding a third door is one more entry there.
-- `/business`, `/workshops`, `/oferta`, `/privacy`, plus the API routes below.
+- `/` entry screen: **For business** (`/business`, the corporate landing) or
+  **For individuals** (`/workshops`). Copy lives in `lib/content.ts` (`gateway`).
+- `/workshops` schedule + request form, `/workshops/booking/[id]` status page of
+  one request, `/privacy`.
+- API: `/api/telegram` (bot webhook), `/api/cron/reminders` (daily reminders).
 
 ## How it works
 
 ```
-/workshops (reads dates from Postgres)
-  -> Server Action startCheckout -> createBooking (locks the date row, holds seats 15 min)
-  -> monobank invoice -> customer pays on the bank page
-monobank -> POST /api/payments/monobank (signature checked) -> confirmPayment -> email + Telegram
-/workshops/booking/[id]  polls POST /api/workshops/bookings/[id]/sync as a fallback for late webhooks
+/workshops (dates from Postgres)
+  -> Server Action submitRequest -> createBooking (locks the date row, holds the seats)
+  -> email to the customer + Telegram message to the owner with [Paid] [Cancel]
+owner sends the payment link herself -> presses "Paid" -> confirmation email to the customer
 Telegram -> POST /api/telegram (secret checked) -> grammY bot (admins only)
-Vercel Cron, daily 07:00 UTC -> GET /api/cron/reminders -> reminder emails
+Vercel Cron, daily 07:00 UTC -> GET /api/cron/reminders -> reminder emails to paid guests
 ```
 
-Key rules (all covered by tests in `tests/`):
+Statuses of a booking: `requested` (seats held, waiting for payment) -> `paid`, or
+`cancelled`. A request holds its seats until the owner cancels it, so keep an eye
+on the **🕓 Заявки** list in the bot.
+
+Key rules (covered by tests in `tests/`):
 
 - **No overselling.** `createBooking` runs `SELECT ... FOR UPDATE` on the date, so
-  simultaneous buyers queue up. An unpaid booking holds seats for 15 minutes and
-  then simply stops counting.
-- **Payments are idempotent.** Only the call that actually flips a booking to
-  `paid` sends the email and the Telegram message, however many times monobank
-  retries.
-- **A failed card attempt does not cancel the booking**: the customer may retry on
-  the same invoice. Unpaid bookings expire with their hold.
-- **Late payment, seat already resold** -> status `needs_attention` and a Telegram
-  alert. The owner decides: refund, or squeeze the guest in.
+  simultaneous requests queue up.
+- **Double taps are safe.** Pressing **Paid** twice, or the customer sending the
+  form twice, changes and sends nothing the second time.
+- **Without a database** (no `DATABASE_URL`) `/workshops` shows a sample schedule
+  and a Telegram button instead of the form. A configured but broken database shows
+  an error, never the samples.
 
 ## Local development
 
@@ -48,36 +50,29 @@ npm run dev
 npm test                                                     # DB tests are skipped without TEST_DATABASE_URL
 ```
 
-Without `MONOBANK_TOKEN`, development uses a fake payment page
-(`/workshops/sandbox-pay/[id]`). It returns 404 in production.
-
 ## Going live checklist
 
-1. **Database.** Create a Postgres (Vercel Marketplace -> Neon). Set `DATABASE_URL`
-   in Vercel, then apply the schema once:
+1. **Database.** Create a Postgres (Vercel Marketplace -> Neon). Vercel sets
+   `DATABASE_URL`; apply the schema once from your laptop:
    `DATABASE_URL=<prod url> npm run db:migrate`.
-2. **monobank acquiring.** Needs a sole-proprietor (FOP) account. Set
-   `MONOBANK_TOKEN`. `NEXT_PUBLIC_SITE_URL` must be the public `https://` domain:
-   monobank calls `/api/payments/monobank` there.
-3. **Email.** Create a Resend account, verify the sending domain (DNS), set
-   `RESEND_API_KEY` and `EMAIL_FROM`.
-4. **Telegram bot.** Set `ADMIN_TELEGRAM_IDS` (comma-separated user ids),
-   `TELEGRAM_WEBHOOK_SECRET` (random string), then run once:
+2. **Telegram bot.** In Vercel set `TELEGRAM_BOT_TOKEN`, `ADMIN_TELEGRAM_IDS`
+   (comma-separated user ids; a stranger who writes the bot is told their id),
+   `TELEGRAM_WEBHOOK_SECRET` (random string) and `NEXT_PUBLIC_SITE_URL` (the public
+   `https://` address). Then, with the same values in `.env.local`, run once:
    `node --env-file-if-exists=.env.local scripts/set-telegram-webhook.ts`.
-   A bot has one webhook: if another program already receives this bot's updates,
-   use a new bot from @BotFather instead.
-5. **Cron.** Set `CRON_SECRET` (random string). `vercel.json` schedules the job.
-6. **Legal pages.** Fill in `lib/legal.ts` (FOP details, refund terms), have it
-   reviewed, then set `LEGAL_DRAFT = false`.
-7. **Copy.** Confirm the draft texts in `lib/content.ts` (`workshopsPage`): what is
-   included, location, duration.
-8. **Real test.** Pay the smallest amount with a real card, check the email and the
-   Telegram message, then refund it.
+   A bot has one webhook: if something else receives this bot's updates, use a new bot.
+3. **Email** (optional but recommended). Resend account, verify the sending domain,
+   set `RESEND_API_KEY` and `EMAIL_FROM`. Without them customers get no emails and
+   the owner is warned in each request.
+4. **Cron.** Set `CRON_SECRET` (random string). `vercel.json` schedules the job.
+5. **Privacy page.** Fill in `lib/legal.ts` (FOP details), have it reviewed, then
+   set `LEGAL_DRAFT = false`.
+6. **Copy.** Confirm the draft texts in `lib/content.ts` (`workshopsPage`).
+7. **Real test.** Send a request, check Telegram and the email, press Paid.
 
-## Known limitations (v1)
+## Known limitations
 
-- Anyone can hold seats for 15 minutes by starting checkouts. If abused, add rate
-  limiting (Vercel WAF) or a captcha.
-- No automatic refunds: the owner refunds in the monobank cabinet.
-- No fiscal receipts (PRRO/Checkbox): confirm with the accountant.
-- Hosting a paid site on Vercel's Hobby plan is against its terms (non-commercial only).
+- A request holds seats until the owner cancels it. Anyone can fill dates with
+  requests; if abused, add rate limiting (Vercel WAF) or a captcha.
+- No online payment and no automatic refunds: payment links and refunds are manual.
+- Vercel's Hobby plan is for non-commercial use only.

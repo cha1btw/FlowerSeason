@@ -11,11 +11,14 @@ export function adminChatIds(): string[] {
     .filter(Boolean);
 }
 
-export async function notifyAdmins(text: string): Promise<void> {
+export async function notifyAdmins(
+  text: string,
+  extra: Record<string, unknown> = {},
+): Promise<void> {
   const ids = adminChatIds();
   if (ids.length === 0) {
     console.error("No admin Telegram chat is configured; notification dropped.");
     return;
   }
-  await Promise.all(ids.map((id) => sendTelegramHtml(id, text)));
+  await Promise.all(ids.map((id) => sendTelegramHtml(id, text, extra)));
 }

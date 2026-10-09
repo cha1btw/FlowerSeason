@@ -10,7 +10,8 @@ import {
 } from "../db/schema.ts";
 import { seatsTakenInSession } from "./service.ts";
 
-const PAID = sql`${bookings.status} in ('paid', 'needs_attention')`;
+const PAID = sql`${bookings.status} = 'paid'`;
+const REQUESTED = sql`${bookings.status} = 'requested'`;
 
 export const DEFAULT_DURATION_MIN = 120;
 
@@ -80,8 +81,8 @@ export async function getBooking(db: Db, bookingId: string): Promise<Booking | u
   return booking;
 }
 
-// Cancels a paid booking: the seats are released and it leaves the revenue.
-// The money itself is refunded by hand in the bank cabinet.
+// Cancels a request or a paid booking: the seats are released and it leaves the
+// revenue. If the guest already paid, the owner refunds that by hand.
 export async function cancelBooking(
   db: Db,
   bookingId: string,
@@ -89,7 +90,7 @@ export async function cancelBooking(
   const [booking] = await db
     .update(bookings)
     .set({ status: "cancelled" })
-    .where(and(eq(bookings.id, bookingId), inArray(bookings.status, ["paid", "needs_attention"])))
+    .where(and(eq(bookings.id, bookingId), inArray(bookings.status, ["requested", "paid"])))
     .returning();
   return booking;
 }
@@ -113,7 +114,7 @@ export async function updateCapacity(
       .for("update");
     if (!session) return { ok: false, reason: "not_found" } as const;
 
-    const taken = await seatsTakenInSession(tx, sessionId, now);
+    const taken = await seatsTakenInSession(tx, sessionId);
     if (capacity < taken) {
       return { ok: false, reason: "too_low", seatsTaken: taken } as const;
     }
@@ -129,14 +130,14 @@ export async function updateCapacity(
 
 export type AdminSession = Session & {
   paidSeats: number;
-  heldSeats: number;
+  requestedSeats: number;
   revenueKop: number;
 };
 
-const adminSessionColumns = (now: Date) => ({
+const adminSessionColumns = () => ({
   session: sessions,
   paidSeats: sql<number>`coalesce(sum(${bookings.seats}) filter (where ${PAID}), 0)::int`,
-  heldSeats: sql<number>`coalesce(sum(${bookings.seats}) filter (where ${bookings.status} = 'pending' and ${bookings.holdExpiresAt} > ${now.toISOString()}::timestamptz), 0)::int`,
+  requestedSeats: sql<number>`coalesce(sum(${bookings.seats}) filter (where ${REQUESTED}), 0)::int`,
   revenueKop: sql<number>`coalesce(sum(${bookings.amountKop}) filter (where ${PAID}), 0)::int`,
 });
 
@@ -146,7 +147,7 @@ export async function listAdminSessions(
   now: Date = new Date(),
 ): Promise<AdminSession[]> {
   const rows = await db
-    .select(adminSessionColumns(now))
+    .select(adminSessionColumns())
     .from(sessions)
     .leftJoin(bookings, eq(bookings.sessionId, sessions.id))
     .where(and(gt(sessions.startsAt, now), ne(sessions.status, "cancelled")))
@@ -162,7 +163,7 @@ export async function getAdminSession(
   now: Date = new Date(),
 ): Promise<AdminSession | undefined> {
   const [row] = await db
-    .select(adminSessionColumns(now))
+    .select(adminSessionColumns())
     .from(sessions)
     .leftJoin(bookings, eq(bookings.sessionId, sessions.id))
     .where(eq(sessions.id, sessionId))
@@ -179,8 +180,28 @@ export async function getParticipants(
   return db
     .select()
     .from(bookings)
-    .where(and(eq(bookings.sessionId, sessionId), inArray(bookings.status, ["paid", "needs_attention"])))
+    .where(and(eq(bookings.sessionId, sessionId), inArray(bookings.status, ["requested", "paid"])))
     .orderBy(bookings.createdAt);
+}
+
+export type RequestRow = { booking: Booking; startsAt: Date };
+
+// Requests still waiting for payment on upcoming, non-cancelled dates, oldest first.
+export async function listRequests(db: Db, now: Date = new Date()): Promise<RequestRow[]> {
+  const rows = await db
+    .select({ booking: bookings, startsAt: sessions.startsAt })
+    .from(bookings)
+    .innerJoin(sessions, eq(sessions.id, bookings.sessionId))
+    .where(
+      and(
+        eq(bookings.status, "requested"),
+        gt(sessions.startsAt, now),
+        ne(sessions.status, "cancelled"),
+      ),
+    )
+    .orderBy(bookings.createdAt)
+    .limit(30);
+  return rows;
 }
 
 export type Analytics = {
@@ -189,9 +210,10 @@ export type Analytics = {
   revenueKop: number;
   last7DaysRevenueKop: number;
   last7DaysSeats: number;
+  requestedBookings: number;
+  requestedKop: number;
   createdBookings: number;
-  abandonedBookings: number;
-  needsAttention: number;
+  cancelledBookings: number;
   perDay: { day: string; revenueKop: number; seats: number }[];
 };
 
@@ -199,7 +221,6 @@ export async function getAnalytics(
   db: Db,
   now: Date = new Date(),
 ): Promise<Analytics> {
-  const nowIso = now.toISOString();
   const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60_000).toISOString();
 
   const [totals] = await db
@@ -209,11 +230,11 @@ export async function getAnalytics(
       revenueKop: sql<number>`coalesce(sum(${bookings.amountKop}) filter (where ${PAID}), 0)::int`,
       last7DaysRevenueKop: sql<number>`coalesce(sum(${bookings.amountKop}) filter (where ${PAID} and ${bookings.paidAt} >= ${weekAgo}::timestamptz), 0)::int`,
       last7DaysSeats: sql<number>`coalesce(sum(${bookings.seats}) filter (where ${PAID} and ${bookings.paidAt} >= ${weekAgo}::timestamptz), 0)::int`,
+      // Requests still waiting for payment, and what they are worth.
+      requestedBookings: sql<number>`count(*) filter (where ${REQUESTED})::int`,
+      requestedKop: sql<number>`coalesce(sum(${bookings.amountKop}) filter (where ${REQUESTED}), 0)::int`,
       createdBookings: sql<number>`count(*)::int`,
-      // Abandoned = the customer started checkout and never paid: the hold ran
-      // out, or the invoice could not be created.
-      abandonedBookings: sql<number>`count(*) filter (where ${bookings.status} in ('expired', 'failed') or (${bookings.status} = 'pending' and ${bookings.holdExpiresAt} <= ${nowIso}::timestamptz))::int`,
-      needsAttention: sql<number>`count(*) filter (where ${bookings.status} = 'needs_attention')::int`,
+      cancelledBookings: sql<number>`count(*) filter (where ${bookings.status} = 'cancelled')::int`,
     })
     .from(bookings);
 

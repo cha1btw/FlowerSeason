@@ -1,9 +1,8 @@
 # Live demo on your laptop with a real Telegram bot
 
-Goal: the owner uses the real bot on her phone while a customer books from
-another phone, all served from this laptop. Payment is the local sandbox page
-and emails are only printed in the server log (no Resend key yet), everything
-else is real.
+Goal: the owner uses the real bot on her phone while a customer sends a request
+from another phone, all served from this laptop. Emails are only printed in the
+server log (no Resend key yet), everything else is real.
 
 ## 1. One-time prerequisites
 
@@ -56,9 +55,10 @@ receive notifications.
 ## 5. Demo script (about 5 minutes)
 
 1. Owner: `/start` -> "➕ Нова дата" -> `20.12`, `18:00`, `8`, `1800` -> "Створити".
-2. Customer phone: open the tunnel address -> For individuals -> pick the date -> pay in the sandbox page (PAY).
-3. Owner's phone: "💳 Нова оплата" arrives. The customer email appears in the server log (`[email not configured]`).
-4. Owner: "📅 Розклад" -> the date -> "👥 Учасники", "🕒 Дата й час", "💰 Ціна", "📊 Аналітика".
+2. Customer phone: open the tunnel address -> For individuals -> pick the date -> send the request.
+3. Owner's phone: "📝 Нова заявка" arrives with [✅ Оплачено] [❌ Скасувати]. The customer email appears in the server log (`[email not configured]`).
+4. Owner presses "✅ Оплачено" (as if the guest had paid the link she sent). The customer's status page turns into "Ви записані".
+5. Owner: "📅 Розклад" -> the date -> "👥 Учасники", "🕒 Дата й час", "💰 Ціна", "🕓 Заявки", "📊 Аналітика".
 
 ## Notes
 
@@ -66,5 +66,5 @@ receive notifications.
   `NEXT_PUBLIC_SITE_URL`, restart, and run the webhook script again.
 - After the demo, remove the webhook if the token will be reused elsewhere:
   `curl "https://api.telegram.org/bot<TOKEN>/deleteWebhook"`.
-- The production site cannot do this demo yet: it has no database, and the
-  sandbox payment page is disabled in production on purpose.
+- The production site cannot do this demo yet: it has no database, so it shows
+  the sample schedule only (see docs/booking.md, "Going live").

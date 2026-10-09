@@ -14,14 +14,11 @@ import {
 export const SESSION_STATUSES = ["open", "closed", "cancelled"] as const;
 export type SessionStatus = (typeof SESSION_STATUSES)[number];
 
-export const BOOKING_STATUSES = [
-  "pending",
-  "paid",
-  "failed",
-  "expired",
-  "needs_attention",
-  "cancelled", // a paid booking cancelled by the owner (refund is done by hand)
-] as const;
+// requested: the customer left a request; the seats are held until the owner
+//            sends a payment link and marks it paid, or cancels it
+// paid:      the owner confirmed the payment
+// cancelled: declined or cancelled by the owner (a refund is done by hand)
+export const BOOKING_STATUSES = ["requested", "paid", "cancelled"] as const;
 export type BookingStatus = (typeof BOOKING_STATUSES)[number];
 
 export const sessions = pgTable(
@@ -61,10 +58,7 @@ export const bookings = pgTable(
     email: text("email").notNull(),
     seats: integer("seats").notNull(),
     amountKop: integer("amount_kop").notNull(),
-    status: text("status", { enum: BOOKING_STATUSES }).notNull().default("pending"),
-    holdExpiresAt: timestamp("hold_expires_at", { withTimezone: true }).notNull(),
-    invoiceId: text("invoice_id").unique(),
-    paymentUrl: text("payment_url"),
+    status: text("status", { enum: BOOKING_STATUSES }).notNull().default("requested"),
     paidAt: timestamp("paid_at", { withTimezone: true }),
     reminderSentAt: timestamp("reminder_sent_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -76,7 +70,7 @@ export const bookings = pgTable(
     check("bookings_amount_non_negative", sql`${t.amountKop} >= 0`),
     check(
       "bookings_status_valid",
-      sql`${t.status} in ('pending', 'paid', 'failed', 'expired', 'needs_attention', 'cancelled')`,
+      sql`${t.status} in ('requested', 'paid', 'cancelled')`,
     ),
     index("bookings_session_status_idx").on(t.sessionId, t.status),
   ],
@@ -88,6 +82,17 @@ export const botDrafts = pgTable("bot_drafts", {
   chatId: bigint("chat_id", { mode: "number" }).primaryKey(),
   step: text("step").notNull(),
   data: jsonb("data").$type<Record<string, unknown>>().notNull().default({}),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+// Texts of the emails sent to customers that the owner has edited in the bot.
+// A missing row means "use the built-in default" (lib/booking/email-templates.ts).
+export const emailTemplates = pgTable("email_templates", {
+  key: text("key").primaryKey(),
+  subject: text("subject").notNull(),
+  body: text("body").notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

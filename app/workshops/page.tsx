@@ -11,7 +11,8 @@ import {
   BookingPanel,
   type PublicSession,
 } from "@/components/workshops/booking-panel";
-import { listUpcomingSessions } from "@/lib/booking/service";
+import { demoSessions } from "@/lib/booking/demo-sessions";
+import { listUpcomingSessions, type SessionWithAvailability } from "@/lib/booking/service";
 import { siteContent } from "@/lib/content";
 import { getDb } from "@/lib/db";
 import { formatUah } from "@/lib/format";
@@ -39,33 +40,41 @@ const sectionSpace = "py-24 sm:py-28 lg:py-40";
 const ctaClass =
   "inline-flex min-h-12 items-center gap-5 border-b border-current py-3 text-xs font-medium tracking-[0.15em] transition-opacity hover:opacity-55 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 active:opacity-45";
 
-async function loadSessions(): Promise<PublicSession[] | null> {
+function toPublic(session: SessionWithAvailability): PublicSession {
+  const [day, ...month] = formatSessionDate(session.startsAt).split(" ");
+  return {
+    id: session.id,
+    day,
+    month: month.join(" "),
+    weekday: formatSessionWeekday(session.startsAt),
+    time: formatSessionTime(session.startsAt),
+    durationMin: session.durationMin,
+    priceKop: session.priceKop,
+    seatsLeft: session.seatsLeft,
+    capacity: session.capacity,
+  };
+}
+
+// Without a database (nothing connected yet) the page shows a sample schedule so
+// the design can be reviewed; with one, real dates come from it. A broken
+// database is reported as an error instead of being hidden behind samples.
+async function loadSessions(): Promise<{ sessions: PublicSession[] | null; demo: boolean }> {
+  if (!process.env.DATABASE_URL) {
+    return { sessions: demoSessions().map(toPublic), demo: true };
+  }
   try {
     const sessions = await listUpcomingSessions(getDb());
-    return sessions.map((session) => {
-      const [day, ...month] = formatSessionDate(session.startsAt).split(" ");
-      return {
-        id: session.id,
-        day,
-        month: month.join(" "),
-        weekday: formatSessionWeekday(session.startsAt),
-        time: formatSessionTime(session.startsAt),
-        durationMin: session.durationMin,
-        priceKop: session.priceKop,
-        seatsLeft: session.seatsLeft,
-        capacity: session.capacity,
-      };
-    });
+    return { sessions: sessions.map(toPublic), demo: false };
   } catch (error) {
     console.error("Could not load workshop sessions.", error);
-    return null;
+    return { sessions: null, demo: false };
   }
 }
 
 export default async function WorkshopsPage() {
   // Free seats change every minute, so this page must never be prerendered.
   await connection();
-  const sessions = await loadSessions();
+  const { sessions, demo } = await loadSessions();
   const next = sessions?.find((session) => session.seatsLeft > 0);
 
   return (
@@ -265,7 +274,7 @@ export default async function WorkshopsPage() {
                   </a>
                 </div>
               ) : (
-                <BookingPanel sessions={sessions} />
+                <BookingPanel sessions={sessions} demo={demo} />
               )}
             </div>
           </div>

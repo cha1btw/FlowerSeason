@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { after, before, beforeEach, describe, test } from "node:test";
 import { sql } from "drizzle-orm";
 import type { Bot } from "grammy";
-import { confirmPayment, createBooking } from "../lib/booking/service.ts";
+import { createBooking, markPaid } from "../lib/booking/service.ts";
 import { createBot } from "../lib/bot/index.ts";
 import { createDb, type Db } from "../lib/db/index.ts";
 import { runMigrations } from "../lib/db/migrate.ts";
@@ -193,17 +193,17 @@ describe("telegram bot", { skip: !url && "TEST_DATABASE_URL is not set" }, () =>
       seats: 2,
     });
     assert.ok(guest.ok);
-    await confirmPayment(db, guest.booking.id);
+    await markPaid(db, guest.booking.id);
 
     await say("📅 Розклад");
     const open = buttons().find((b) => b.callback_data === `sc:${session.id}`);
     assert.ok(open, "schedule has a button for the date");
-    assert.match(open.text, /2\/8/);
+    assert.match(open.text, /✅2 🕓0 \/ 8/);
 
     await tap(`sc:${session.id}`);
     assert.match(lastText(), /Олена/);
     assert.match(lastText(), /\+380501234567/);
-    assert.match(lastText(), /Продано: <b>2<\/b>/);
+    assert.match(lastText(), /Оплачено: <b>2<\/b>/);
   });
 
   test("sales can be closed and reopened from the card", async () => {
@@ -227,7 +227,7 @@ describe("telegram bot", { skip: !url && "TEST_DATABASE_URL is not set" }, () =>
       seats: 3,
     });
     assert.ok(guest.ok);
-    await confirmPayment(db, guest.booking.id);
+    await markPaid(db, guest.booking.id);
 
     await tap(`cap:${session.id}`);
     await say("2");
@@ -248,7 +248,7 @@ describe("telegram bot", { skip: !url && "TEST_DATABASE_URL is not set" }, () =>
       seats: 1,
     });
     assert.ok(guest.ok);
-    await confirmPayment(db, guest.booking.id);
+    await markPaid(db, guest.booking.id);
 
     await tap(`cx:${session.id}`);
     assert.match(lastText(), /не повертаються/);
@@ -270,10 +270,10 @@ describe("telegram bot", { skip: !url && "TEST_DATABASE_URL is not set" }, () =>
       seats: 2,
     });
     assert.ok(guest.ok);
-    await confirmPayment(db, guest.booking.id);
+    await markPaid(db, guest.booking.id);
 
     await say("📊 Аналітика");
-    assert.match(lastText(), /Виручка всього: <b>3 600 ₴<\/b>/);
+    assert.match(lastText(), /Отримано оплат: <b>3 600 ₴<\/b>/);
     assert.match(lastText(), /2\/8/);
   });
 
@@ -286,7 +286,7 @@ describe("telegram bot", { skip: !url && "TEST_DATABASE_URL is not set" }, () =>
       seats,
     });
     assert.ok(guest.ok);
-    await confirmPayment(db, guest.booking.id);
+    await markPaid(db, guest.booking.id);
     return guest.booking;
   }
 
@@ -399,5 +399,151 @@ describe("telegram bot", { skip: !url && "TEST_DATABASE_URL is not set" }, () =>
     assert.equal(emails.length, 2);
     assert.ok(emails.every((line) => line.includes("скасовано")));
     assert.match(lastText(), /Листи учасникам/);
+  });
+
+  async function requestedGuest(sessionId: string, n = 1, seats = 1) {
+    const result = await createBooking(db, {
+      sessionId,
+      name: `Заявник ${n}`,
+      phone: "+380671112233",
+      email: `req${n}@example.com`,
+      seats,
+    });
+    assert.ok(result.ok);
+    return result.booking;
+  }
+
+  test("the Requests button lists waiting requests across dates", async () => {
+    const session = await createViaWizard();
+    const waiting = await requestedGuest(session.id, 1, 2);
+    await paidGuest(session.id, 2);
+
+    await say("🕓 Заявки");
+    assert.match(lastText(), /Заявки, що чекають оплати \(1\)/);
+    const entry = buttons().find((b) => b.callback_data === `pp:${waiting.id}`);
+    assert.ok(entry, "the waiting request has a button");
+    assert.match(entry.text, /Заявник 1/);
+    assert.equal(buttons().length, 1, "paid guests are not listed");
+  });
+
+  test("with no requests the owner is told so", async () => {
+    await createViaWizard();
+    await say("🕓 Заявки");
+    assert.match(lastText(), /немає/);
+  });
+
+  test("a request card offers Paid and Cancel", async () => {
+    const session = await createViaWizard();
+    const waiting = await requestedGuest(session.id);
+
+    await tap(`pp:${waiting.id}`);
+    assert.match(lastText(), /очікує оплати/);
+    const labels = buttons().map((b) => b.callback_data);
+    assert.ok(labels.includes(`bp:${waiting.id}`));
+    assert.ok(labels.includes(`bc:${waiting.id}`));
+  });
+
+  test("pressing Paid confirms the booking and emails the guest once", async () => {
+    const session = await createViaWizard();
+    const waiting = await requestedGuest(session.id);
+
+    const emails = await captureEmails(async () => {
+      await tap(`bp:${waiting.id}`);
+      await tap(`bp:${waiting.id}`); // a second tap must do nothing
+    });
+
+    assert.equal((await db.execute(sql`select status from bookings`))[0].status, "paid");
+    assert.equal(emails.length, 1);
+    assert.match(emails[0], /req1@example\.com/);
+    assert.match(lastText(), /вже оброблено/);
+  });
+
+  test("cancelling a request that was never paid does not ask for a refund", async () => {
+    const session = await createViaWizard();
+    const waiting = await requestedGuest(session.id);
+
+    await tap(`bc:${waiting.id}`);
+    assert.doesNotMatch(lastText(), /повернути вручну/);
+
+    await captureEmails(() => tap(`bcy:${waiting.id}`));
+    assert.equal((await db.execute(sql`select status from bookings`))[0].status, "cancelled");
+    assert.doesNotMatch(lastText(), /Поверніть/);
+  });
+
+  test("cancelling a date asks for refunds only for guests who paid", async () => {
+    const session = await createViaWizard();
+    await paidGuest(session.id, 1);
+    await requestedGuest(session.id, 2);
+
+    const emails = await captureEmails(() => tap(`cxy:${session.id}`));
+    assert.match(lastText(), /Потрібно повернути кошти \(1\)/);
+    assert.match(lastText(), /Заявок без оплати скасовано: 1/);
+    assert.equal(emails.length, 2, "everyone who signed up is told");
+  });
+
+  test("the Letters button lists the five automatic emails", async () => {
+    await say("✉️ Листи");
+    assert.match(lastText(), /Листи клієнтам/);
+    const labels = buttons().map((b) => b.callback_data);
+    for (const key of ["request", "paid", "reminder", "reschedule", "cancelled"]) {
+      assert.ok(labels.includes(`em:${key}`), key);
+    }
+  });
+
+  test("a letter card shows the subject and an example text", async () => {
+    await tap("em:paid");
+    assert.match(lastText(), /Оплату підтверджено/);
+    assert.match(lastText(), /Тема:<\/b> Ви записані на майстер-клас 20 грудня о 18:00/);
+    assert.match(lastText(), /Олена, дякуємо! Оплату отримано/);
+    assert.match(lastText(), /стандартний текст/);
+    assert.ok(buttons().some((b) => b.callback_data === "ems:paid"));
+    assert.ok(buttons().some((b) => b.callback_data === "emb:paid"));
+    assert.ok(!buttons().some((b) => b.callback_data === "emr:paid"), "no reset while default");
+  });
+
+  test("the owner can rewrite a letter and the next email uses the new text", async () => {
+    await tap("emb:paid");
+    assert.match(texts().join("\n"), /\{name\}/);
+    await say("Привіт, {name}!\n\nЧекаємо на вас {when}.");
+    assert.match(lastText(), /змінено вами/);
+    assert.match(lastText(), /Привіт, Олена!/);
+
+    await tap("ems:paid");
+    await say("Ви з нами, {name}");
+
+    const session = await createViaWizard();
+    const waiting = await requestedGuest(session.id);
+    const emails = await captureEmails(() => tap(`bp:${waiting.id}`));
+    assert.equal(emails.length, 1);
+    assert.match(emails[0], /subject="Ви з нами, Заявник 1"/);
+  });
+
+  test("a typo in a placeholder is refused and nothing is saved", async () => {
+    await tap("emb:request");
+    await say("Привіт, {nmae}");
+    assert.match(lastText(), /Невідомі підстановки: \{nmae\}/);
+    await tap("em:request");
+    assert.match(lastText(), /стандартний текст/);
+  });
+
+  test("a customised letter can be reset to the standard text", async () => {
+    await tap("ems:cancelled");
+    await say("Інша тема");
+    assert.ok(buttons().some((b) => b.callback_data === "emr:cancelled"));
+
+    await tap("emr:cancelled");
+    assert.match(lastText(), /стандартний текст/);
+    assert.match(lastText(), /Запис на майстер-клас 20 грудня скасовано/);
+  });
+
+  test("the reschedule letter explains {oldWhen} but other letters refuse it", async () => {
+    await tap("emb:reschedule");
+    assert.match(texts().join("\n"), /oldWhen/);
+    await say("Було {oldWhen}, стало {when}");
+    assert.match(lastText(), /змінено вами/);
+
+    await tap("emb:paid");
+    await say("Було {oldWhen}");
+    assert.match(lastText(), /Невідомі підстановки/);
   });
 });

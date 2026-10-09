@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { startCheckout } from "@/app/workshops/actions";
+import { submitRequest } from "@/app/workshops/actions";
 import { initialCheckoutFormState } from "@/lib/checkout-form-state";
 import { siteContent } from "@/lib/content";
 import { formatUah, pluralSeats } from "@/lib/format";
@@ -123,10 +123,17 @@ function SessionRow({
   );
 }
 
-export function BookingPanel({ sessions }: { sessions: PublicSession[] }) {
+export function BookingPanel({
+  sessions,
+  demo = false,
+}: {
+  sessions: PublicSession[];
+  // No database is connected yet: show a sample schedule, no form.
+  demo?: boolean;
+}) {
   const router = useRouter();
   const [state, formAction] = useActionState(
-    startCheckout,
+    submitRequest,
     initialCheckoutFormState,
   );
   const [selectedId, setSelectedId] = useState<string>(() => {
@@ -173,6 +180,25 @@ export function BookingPanel({ sessions }: { sessions: PublicSession[] }) {
         </div>
       </fieldset>
 
+      {demo ? (
+        <div className="border border-ink bg-white p-6 sm:p-8 lg:col-span-5 lg:sticky lg:top-28 lg:self-start">
+          <p className="text-[10px] tracking-[0.18em] text-neutral-500">
+            {copy.schedule.demoLabel}
+          </p>
+          <p className="mt-5 text-sm leading-relaxed text-neutral-600">
+            {copy.schedule.demoNote}
+          </p>
+          <a
+            href={siteContent.contacts.telegram.url}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-8 inline-flex min-h-12 items-center gap-5 border-b border-current py-3 text-xs font-medium tracking-[0.15em] transition-opacity hover:opacity-55"
+          >
+            {copy.schedule.demoCta}
+            <ArrowUpRight size={17} strokeWidth={1.4} aria-hidden="true" />
+          </a>
+        </div>
+      ) : (
       <form
         id="checkout-form"
         action={formAction}
@@ -227,6 +253,9 @@ export function BookingPanel({ sessions }: { sessions: PublicSession[] }) {
               maxLength={30}
               required
             />
+            <span className="mt-1 block text-[11px] tracking-normal text-neutral-500">
+              {copy.form.fields.phone.hint}
+            </span>
           </label>
           <label className="block text-xs tracking-[0.13em]">
             {copy.form.fields.email.label}
@@ -284,10 +313,6 @@ export function BookingPanel({ sessions }: { sessions: PublicSession[] }) {
             />
             <span>
               {copy.form.consentPrefix}{" "}
-              <Link href="/oferta" className="underline underline-offset-2">
-                {copy.form.consentOffer}
-              </Link>{" "}
-              {copy.form.consentAnd}{" "}
               <Link href="/privacy" className="underline underline-offset-2">
                 {copy.form.consentPrivacy}
               </Link>
@@ -314,6 +339,7 @@ export function BookingPanel({ sessions }: { sessions: PublicSession[] }) {
           </p>
         </div>
       </form>
+      )}
     </div>
   );
 }

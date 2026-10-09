@@ -3,7 +3,7 @@ import { after, before, beforeEach, describe, test } from "node:test";
 import { eq, sql } from "drizzle-orm";
 import { createSession, setSessionStatus } from "../lib/booking/admin-service.ts";
 import { sendDueReminders } from "../lib/booking/reminders.ts";
-import { confirmPayment, createBooking } from "../lib/booking/service.ts";
+import { createBooking, markPaid } from "../lib/booking/service.ts";
 import { createDb, type Db } from "../lib/db/index.ts";
 import { runMigrations } from "../lib/db/migrate.ts";
 import { bookings } from "../lib/db/schema.ts";
@@ -45,7 +45,7 @@ describe("reminders", { skip: !url && "TEST_DATABASE_URL is not set" }, () => {
       hours(-48),
     );
     assert.ok(created.ok);
-    await confirmPayment(db, created.booking.id, { now: hours(-47) });
+    await markPaid(db, created.booking.id, hours(-47));
     return created.booking;
   }
 
@@ -61,7 +61,7 @@ describe("reminders", { skip: !url && "TEST_DATABASE_URL is not set" }, () => {
     const b = await paid(soon.id, 2);
     const farAway = await paid(later.id, 3);
     const gone = await paid(past.id, 4);
-    // A guest who never paid must not get a reminder.
+    // A request that was never paid must not get a reminder.
     await createBooking(
       db,
       { sessionId: soon.id, name: "Unpaid", phone: "+380501234567", email: "u@example.com", seats: 1 },

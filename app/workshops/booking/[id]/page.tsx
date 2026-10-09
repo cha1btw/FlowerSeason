@@ -4,7 +4,6 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { Header } from "@/components/header";
 import { SiteFooter } from "@/components/site-footer";
-import { AutoRefresh } from "@/components/workshops/auto-refresh";
 import { bookingView } from "@/lib/booking/status";
 import { getBookingWithSession } from "@/lib/booking/service";
 import { isUuid } from "@/lib/checkout-validation";
@@ -15,7 +14,7 @@ import { formatSessionDate, formatSessionTime } from "@/lib/time";
 
 const { brand, contacts, footer, workshopsPage: page } = siteContent;
 
-// The link is private to whoever paid, so keep it out of search engines.
+// The link is private to whoever sent the request, so keep it out of search engines.
 export const metadata: Metadata = {
   title: page.booking.eyebrow,
   robots: { index: false, follow: false },
@@ -37,7 +36,7 @@ export default async function BookingStatusPage({
   if (!found) notFound();
 
   const { booking, session } = found;
-  const view = bookingView(booking, new Date(), session.status);
+  const view = bookingView(booking, session.status);
   const text = page.booking.views[view];
 
   const rows = [
@@ -52,8 +51,6 @@ export default async function BookingStatusPage({
       <Header brand={brand} navigation={page.navigation} homeHref="/" />
 
       <main className="mx-auto min-h-[80svh] max-w-[1600px] px-5 pb-24 pt-36 sm:px-8 lg:px-12 lg:pt-44">
-        {view === "processing" ? <AutoRefresh bookingId={booking.id} /> : null}
-
         <p className="text-[11px] tracking-[0.2em]">{page.booking.eyebrow}</p>
         <h1 className="mt-10 max-w-3xl text-[clamp(2.6rem,7vw,6.5rem)] font-light leading-[0.9] tracking-[-0.045em]">
           {text.title}
@@ -74,25 +71,19 @@ export default async function BookingStatusPage({
         </dl>
 
         <div className="mt-12 flex flex-wrap gap-x-10 gap-y-4">
-          {view === "processing" && booking.paymentUrl ? (
-            <a href={booking.paymentUrl} className={ctaClass}>
-              {page.booking.pay}
-            </a>
-          ) : null}
-          {view === "expired" || view === "failed" ? (
+          {view === "cancelled" ? (
             <Link href="/workshops#schedule" className={ctaClass}>
               {page.booking.retry}
             </Link>
-          ) : null}
-          {view === "needs_attention" || view === "expired" || view === "cancelled" ? (
-            <a href={contacts.telegram.url} target="_blank" rel="noreferrer" className={ctaClass}>
-              TELEGRAM
-            </a>
-          ) : null}
-          {view === "paid" ? (
+          ) : (
             <Link href="/workshops" className={ctaClass}>
               {page.booking.back}
             </Link>
+          )}
+          {view !== "paid" ? (
+            <a href={contacts.telegram.url} target="_blank" rel="noreferrer" className={ctaClass}>
+              TELEGRAM
+            </a>
           ) : null}
         </div>
       </main>

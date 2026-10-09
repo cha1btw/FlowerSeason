@@ -14,7 +14,7 @@ import {
   updateCapacity,
   updateSession,
 } from "../lib/booking/admin-service.ts";
-import { confirmPayment, createBooking } from "../lib/booking/service.ts";
+import { createBooking, markPaid } from "../lib/booking/service.ts";
 import { createDb, type Db } from "../lib/db/index.ts";
 import { runMigrations } from "../lib/db/migrate.ts";
 import { bookings } from "../lib/db/schema.ts";
@@ -45,7 +45,7 @@ describe("admin service", { skip: !url && "TEST_DATABASE_URL is not set" }, () =
       at,
     );
     assert.ok(created.ok);
-    await confirmPayment(db, created.booking.id, { now: at });
+    await markPaid(db, created.booking.id, at);
     return created.booking;
   }
 
@@ -93,7 +93,7 @@ describe("admin service", { skip: !url && "TEST_DATABASE_URL is not set" }, () =
     assert.equal(result.ok, false);
   });
 
-  test("the schedule shows sold seats, holds and revenue, and hides cancelled and past dates", async () => {
+  test("the schedule shows paid seats, requested seats and revenue, and hides cancelled and past dates", async () => {
     const open = await createSession(db, { startsAt: days(10), capacity: 8, priceKop: 100_000 });
     const cancelled = await createSession(db, { startsAt: days(11), capacity: 8, priceKop: 100_000 });
     await setSessionStatus(db, cancelled.id, "cancelled");
@@ -109,34 +109,49 @@ describe("admin service", { skip: !url && "TEST_DATABASE_URL is not set" }, () =
     const list = await listAdminSessions(db, minutes(2));
     assert.equal(list.length, 1);
     assert.equal(list[0].paidSeats, 2);
-    assert.equal(list[0].heldSeats, 1);
+    assert.equal(list[0].requestedSeats, 1);
     assert.equal(list[0].revenueKop, 200_000);
   });
 
-  test("participants are only paid bookings, oldest first", async () => {
+  test("participants are requests and paid bookings, oldest first, without cancelled ones", async () => {
     const session = await createSession(db, { startsAt: days(10), capacity: 8, priceKop: 100_000 });
     await paidBooking(session.id, 1, 1, now);
-    await createBooking(
+    const waiting = await createBooking(
       db,
-      { sessionId: session.id, name: "Unpaid", phone: "+380501234567", email: "u@example.com", seats: 1 },
+      { sessionId: session.id, name: "Waiting", phone: "+380501234567", email: "w@example.com", seats: 1 },
       minutes(1),
     );
-    await paidBooking(session.id, 2, 2, minutes(2));
+    assert.ok(waiting.ok);
+    const dropped = await createBooking(
+      db,
+      { sessionId: session.id, name: "Dropped", phone: "+380501234567", email: "d@example.com", seats: 1 },
+      minutes(1),
+    );
+    assert.ok(dropped.ok);
+    await cancelBooking(db, dropped.booking.id);
 
     const people = await getParticipants(db, session.id);
-    assert.deepEqual(people.map((p) => p.name), ["Guest 1", "Guest 2"]);
+    assert.deepEqual(people.map((p) => p.name), ["Guest 1", "Waiting"]);
   });
 
-  test("analytics adds up revenue, conversion and abandoned checkouts", async () => {
+  test("analytics adds up revenue, waiting requests and cancellations", async () => {
     const session = await createSession(db, { startsAt: days(10), capacity: 20, priceKop: 100_000 });
     await paidBooking(session.id, 1, 2, minutes(-60 * 24 * 2)); // 2 days ago, 2 000 UAH
     await paidBooking(session.id, 2, 1, minutes(-10)); // 1 000 UAH
-    // Never paid and the hold ran out: abandoned.
-    await createBooking(
+    // A request still waiting for payment, and one that was cancelled.
+    const waiting = await createBooking(
+      db,
+      { sessionId: session.id, name: "Waiting", phone: "+380501234567", email: "w@example.com", seats: 2 },
+      minutes(-120),
+    );
+    assert.ok(waiting.ok);
+    const gone = await createBooking(
       db,
       { sessionId: session.id, name: "Gone", phone: "+380501234567", email: "gone@example.com", seats: 1 },
       minutes(-120),
     );
+    assert.ok(gone.ok);
+    await cancelBooking(db, gone.booking.id);
     // Old payment (10 days ago): counts in totals, not in the 7-day window.
     const old = await paidBooking(session.id, 3, 1, minutes(-60 * 24 * 10));
     await db
@@ -148,8 +163,10 @@ describe("admin service", { skip: !url && "TEST_DATABASE_URL is not set" }, () =
     assert.equal(a.paidBookings, 3);
     assert.equal(a.paidSeats, 4);
     assert.equal(a.revenueKop, 400_000);
-    assert.equal(a.createdBookings, 4);
-    assert.equal(a.abandonedBookings, 1);
+    assert.equal(a.createdBookings, 5);
+    assert.equal(a.requestedBookings, 1);
+    assert.equal(a.requestedKop, 200_000);
+    assert.equal(a.cancelledBookings, 1);
   });
 
   test("the 7-day window only counts recent payments", async () => {
@@ -253,14 +270,15 @@ describe("admin service", { skip: !url && "TEST_DATABASE_URL is not set" }, () =
     assert.equal(next.ok, true, "the freed seats can be sold again");
   });
 
-  test("an unpaid booking cannot be cancelled this way", async () => {
+  test("a waiting request can be cancelled too, and a cancelled one cannot be cancelled again", async () => {
     const session = await createSession(db, { startsAt: days(10), capacity: 8, priceKop: 100_000 });
-    const pending = await createBooking(
+    const request = await createBooking(
       db,
       { sessionId: session.id, name: "P", phone: "+380501234567", email: "p@example.com", seats: 1 },
       now,
     );
-    assert.ok(pending.ok);
-    assert.equal(await cancelBooking(db, pending.booking.id), undefined);
+    assert.ok(request.ok);
+    assert.equal((await cancelBooking(db, request.booking.id))?.status, "cancelled");
+    assert.equal(await cancelBooking(db, request.booking.id), undefined);
   });
 });

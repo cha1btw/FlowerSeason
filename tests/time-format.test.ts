@@ -62,23 +62,14 @@ test("seat counts use the correct Ukrainian plural", () => {
   assert.equal(pluralSeats(21), "21 місце");
 });
 
-test("bookingView maps database status to what the customer sees", () => {
-  const now = new Date("2026-11-20T10:00:00Z");
-  const future = new Date("2026-11-20T10:05:00Z");
-  const past = new Date("2026-11-20T09:55:00Z");
-  assert.equal(bookingView({ status: "paid", holdExpiresAt: past }, now), "paid");
-  assert.equal(bookingView({ status: "pending", holdExpiresAt: future }, now), "processing");
-  assert.equal(bookingView({ status: "pending", holdExpiresAt: past }, now), "expired");
-  assert.equal(bookingView({ status: "failed", holdExpiresAt: future }, now), "failed");
-  assert.equal(bookingView({ status: "needs_attention", holdExpiresAt: past }, now), "needs_attention");
+test("bookingView shows what the customer should see", () => {
+  assert.equal(bookingView({ status: "requested" }), "requested");
+  assert.equal(bookingView({ status: "paid" }), "paid");
+  assert.equal(bookingView({ status: "cancelled" }), "cancelled");
 });
 
-test("a cancelled booking, or a paid booking on a cancelled date, shows as cancelled", () => {
-  const now = new Date("2026-11-20T10:00:00Z");
-  const hold = new Date("2026-11-20T10:05:00Z");
-  assert.equal(bookingView({ status: "cancelled", holdExpiresAt: hold }, now), "cancelled");
-  assert.equal(bookingView({ status: "paid", holdExpiresAt: hold }, now, "cancelled"), "cancelled");
-  assert.equal(bookingView({ status: "needs_attention", holdExpiresAt: hold }, now, "cancelled"), "cancelled");
-  assert.equal(bookingView({ status: "pending", holdExpiresAt: hold }, now, "cancelled"), "processing");
-  assert.equal(bookingView({ status: "paid", holdExpiresAt: hold }, now, "open"), "paid");
+test("a request or a paid booking on a cancelled date shows as cancelled", () => {
+  assert.equal(bookingView({ status: "requested" }, "cancelled"), "cancelled");
+  assert.equal(bookingView({ status: "paid" }, "cancelled"), "cancelled");
+  assert.equal(bookingView({ status: "paid" }, "open"), "paid");
 });

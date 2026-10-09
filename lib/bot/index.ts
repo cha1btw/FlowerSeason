@@ -10,20 +10,39 @@ import {
   getDraft,
   getParticipants,
   listAdminSessions,
+  listRequests,
   saveDraft,
   setSessionStatus,
   updateCapacity,
   updateSession,
 } from "../booking/admin-service.ts";
 import { notifyCancelled, notifyRescheduled } from "../booking/notify-guests.ts";
+import {
+  PLACEHOLDERS,
+  TEMPLATE_INFO,
+  TEMPLATE_KEYS,
+  allowedPlaceholders,
+  checkBody,
+  checkSubject,
+  composeEmail,
+  getTemplate,
+  isCustomized,
+  resetTemplate,
+  sampleDetails,
+  saveTemplate,
+  type TemplateKey,
+} from "../booking/email-templates.ts";
+import { confirmPaid } from "../booking/request-events.ts";
 import type { Db } from "../db/index.ts";
 import { formatUah, pluralSeats } from "../format.ts";
 import { siteUrl } from "../site.ts";
 import { escapeTelegramHtml as esc } from "../telegram.ts";
-import { kyivDateParts } from "../time.ts";
+import { formatSessionDate, kyivDateParts } from "../time.ts";
 import {
   analyticsText,
+  clip,
   participantLine,
+  requestsText,
   scheduleLine,
   scheduleText,
   sessionCardText,
@@ -41,13 +60,18 @@ import {
 
 const BTN_NEW = "➕ Нова дата";
 const BTN_SCHEDULE = "📅 Розклад";
+const BTN_REQUESTS = "🕓 Заявки";
 const BTN_ANALYTICS = "📊 Аналітика";
+const BTN_EMAILS = "✉️ Листи";
 
 const menu = new Keyboard()
   .text(BTN_NEW)
   .text(BTN_SCHEDULE)
   .row()
+  .text(BTN_REQUESTS)
   .text(BTN_ANALYTICS)
+  .row()
+  .text(BTN_EMAILS)
   .resized()
   .persistent();
 
@@ -112,6 +136,101 @@ export function createBot(db: Db, token: string): Bot {
     else await ctx.reply(text, { ...HTML, reply_markup: keyboard });
   }
 
+  const KEY_PATTERN = TEMPLATE_KEYS.join("|");
+
+  async function showEmailList(ctx: Context, edit = false) {
+    const custom = await isCustomized(db);
+    const keyboard = new InlineKeyboard();
+    for (const key of TEMPLATE_KEYS) {
+      keyboard.text(`${custom.has(key) ? "✏️ " : ""}${TEMPLATE_INFO[key].label}`, `em:${key}`).row();
+    }
+    const text =
+      "✉️ <b>Листи клієнтам</b>\nЦі листи система надсилає сама. Оберіть, щоб переглянути або змінити текст. ✏️ означає, що ви вже змінювали лист.";
+    if (edit) await ctx.editMessageText(text, { ...HTML, reply_markup: keyboard });
+    else await ctx.reply(text, { ...HTML, reply_markup: keyboard });
+  }
+
+  async function showEmailCard(ctx: Context, key: TemplateKey, edit = true) {
+    const [template, custom] = await Promise.all([getTemplate(db, key), isCustomized(db)]);
+    const { details, old } = sampleDetails();
+    const email = composeEmail(key, template, details, "", old);
+    const preview = email.text.replace(/\n\nДеталі: [\s\S]*$/, "");
+    const info = TEMPLATE_INFO[key];
+
+    const text = clip(
+      [
+        `✉️ <b>${esc(info.label)}</b>`,
+        `Надсилається: ${esc(info.when)}${custom.has(key) ? " · ✏️ змінено вами" : " · стандартний текст"}`,
+        "",
+        `<b>Тема:</b> ${esc(email.subject)}`,
+        `<b>Заголовок:</b> ${esc(info.heading)} <i>(не змінюється)</i>`,
+        "",
+        `<b>Текст:</b>`,
+        esc(preview),
+        "",
+        "<i>Це приклад: ім’я, дата й місця підставляються для кожного клієнта. Нижче в листі завжди є посилання «Деталі запису».</i>",
+      ].join("\n"),
+    );
+
+    const keyboard = new InlineKeyboard()
+      .text("✏️ Тема", `ems:${key}`)
+      .text("✏️ Текст", `emb:${key}`)
+      .row();
+    if (custom.has(key)) keyboard.text("↩️ Повернути стандартний", `emr:${key}`).row();
+    keyboard.text("⬅️ До листів", "eml");
+
+    if (edit) await ctx.editMessageText(text, { ...HTML, reply_markup: keyboard });
+    else await ctx.reply(text, { ...HTML, reply_markup: keyboard });
+  }
+
+  const placeholderHelp = (key: TemplateKey) =>
+    allowedPlaceholders(key)
+      .map((name) => `<code>{${name}}</code> — ${esc(PLACEHOLDERS[name])}`)
+      .join("\n");
+
+  bot.hears(BTN_EMAILS, async (ctx) => {
+    await clearDraft(db, chatIdOf(ctx));
+    await showEmailList(ctx);
+  });
+
+  bot.callbackQuery("eml", async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await showEmailList(ctx, true);
+  });
+
+  bot.callbackQuery(new RegExp(`^em:(${KEY_PATTERN})$`), async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await showEmailCard(ctx, ctx.match[1] as TemplateKey);
+  });
+
+  bot.callbackQuery(new RegExp(`^emr:(${KEY_PATTERN})$`), async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await resetTemplate(db, ctx.match[1] as TemplateKey);
+    await showEmailCard(ctx, ctx.match[1] as TemplateKey);
+  });
+
+  for (const [prefix, step, field] of [
+    ["ems", "edit_email_subject", "subject"],
+    ["emb", "edit_email_body", "body"],
+  ] as const) {
+    bot.callbackQuery(new RegExp(`^${prefix}:(${KEY_PATTERN})$`), async (ctx) => {
+      await ctx.answerCallbackQuery();
+      const key = ctx.match[1] as TemplateKey;
+      const template = await getTemplate(db, key);
+      await saveDraft(db, chatIdOf(ctx), step, { key });
+      await ctx.reply(
+        [
+          `<b>${field === "subject" ? "Нова тема" : "Новий текст"}</b> листа «${esc(TEMPLATE_INFO[key].label)}».`,
+          "Зараз:",
+          `<pre>${esc(template[field])}</pre>`,
+          "Надішліть новий варіант одним повідомленням. Порожній рядок розділяє абзаци. Підстановки (замінюються для кожного клієнта):",
+          placeholderHelp(key),
+        ].join("\n"),
+        { ...HTML, reply_markup: cancelKeyboard },
+      );
+    });
+  }
+
   bot.command(["start", "menu"], (ctx) =>
     ctx.reply("Оберіть дію в меню знизу.", { reply_markup: menu }),
   );
@@ -134,6 +253,18 @@ export function createBot(db: Db, token: string): Bot {
   bot.hears(BTN_SCHEDULE, async (ctx) => {
     await clearDraft(db, chatIdOf(ctx));
     await showSchedule(ctx);
+  });
+
+  bot.hears(BTN_REQUESTS, async (ctx) => {
+    await clearDraft(db, chatIdOf(ctx));
+    const rows = await listRequests(db);
+    const keyboard = new InlineKeyboard();
+    for (const { booking, startsAt } of rows) {
+      keyboard
+        .text(`${formatSessionDate(startsAt)} · ${booking.name} · ${pluralSeats(booking.seats)}`, `pp:${booking.id}`)
+        .row();
+    }
+    await ctx.reply(requestsText(rows), { ...HTML, reply_markup: keyboard });
   });
 
   bot.hears(BTN_ANALYTICS, async (ctx) => {
@@ -245,6 +376,22 @@ export function createBot(db: Db, token: string): Bot {
         return;
       }
 
+      case "edit_email_subject":
+      case "edit_email_body": {
+        const key = draft.data.key as TemplateKey;
+        const isSubject = draft.step === "edit_email_subject";
+        const checked = isSubject ? checkSubject(key, text) : checkBody(key, text);
+        if (!checked.ok) {
+          await ask(esc(checked.error));
+          return;
+        }
+        await saveTemplate(db, key, isSubject ? { subject: checked.value } : { body: checked.value });
+        await clearDraft(db, chatId);
+        await ctx.reply("✅ Збережено. Нові листи вже будуть надсилатися з цим текстом.");
+        await showEmailCard(ctx, key, false);
+        return;
+      }
+
       case "edit_start": {
         const parsed = parseDateTime(text, kyivDateParts(new Date()));
         if (!parsed) {
@@ -271,7 +418,7 @@ export function createBot(db: Db, token: string): Bot {
         const guests = await getParticipants(db, sessionId);
         let report = `✅ Час змінено: <b>${esc(when(updated.startsAt))}</b>`;
         if (guests.length > 0) {
-          const result = await notifyRescheduled(guests, updated, before.startsAt);
+          const result = await notifyRescheduled(db, guests, updated, before.startsAt);
           report += `\nЛисти учасникам: надіслано ${result.sent}`;
           if (result.failed > 0) {
             report += `\n⚠️ Не вдалося надіслати: ${result.failed}. Повідомте їх самі.`;
@@ -430,25 +577,56 @@ export function createBot(db: Db, token: string): Bot {
       return;
     }
     const keyboard = new InlineKeyboard();
-    if (booking.status === "paid" || booking.status === "needs_attention") {
+    if (booking.status === "requested") {
+      keyboard
+        .text("✅ Оплачено", `bp:${booking.id}`)
+        .text("❌ Скасувати заявку", `bc:${booking.id}`)
+        .row();
+    } else if (booking.status === "paid") {
       keyboard.text("❌ Скасувати запис", `bc:${booking.id}`).row();
     }
     keyboard.text("⬅️ До учасників", `pl:${booking.sessionId}`);
+    const state =
+      booking.status === "requested" ? "очікує оплати" : booking.status === "paid" ? "оплачено" : "скасовано";
     await ctx.editMessageText(
-      `${participantLine(booking)}\nСума: ${esc(formatUah(booking.amountKop))}\nСтатус: ${esc(booking.status)}`,
+      `${participantLine(booking)}\nДо сплати: ${esc(formatUah(booking.amountKop))}\nСтатус: ${state}`,
       { ...HTML, reply_markup: keyboard },
+    );
+  });
+
+  bot.callbackQuery(/^bp:([0-9a-f-]{36})$/, async (ctx) => {
+    await ctx.answerCallbackQuery();
+    const result = await confirmPaid(db, ctx.match[1]);
+    if (!result) {
+      await ctx.editMessageText("Цю заявку вже оброблено (оплачено або скасовано).");
+      return;
+    }
+    await ctx.editMessageText(
+      `✅ Оплату підтверджено: ${participantLine(result.booking)}\n${
+        result.emailSent
+          ? "Клієнту надіслано лист із підтвердженням."
+          : "⚠️ Лист клієнту не надіслано, повідомте його самі."
+      }`,
+      {
+        ...HTML,
+        reply_markup: new InlineKeyboard().text("⬅️ До учасників", `pl:${result.booking.sessionId}`),
+      },
     );
   });
 
   bot.callbackQuery(/^bc:([0-9a-f-]{36})$/, async (ctx) => {
     await ctx.answerCallbackQuery();
     const booking = await getBooking(db, ctx.match[1]);
-    if (!booking) {
-      await ctx.editMessageText("Запис не знайдено.");
+    if (!booking || booking.status === "cancelled") {
+      await ctx.editMessageText("Запис не знайдено або вже скасовано.");
       return;
     }
+    const money =
+      booking.status === "paid"
+        ? ` Кошти (${esc(formatUah(booking.amountKop))}) потрібно повернути вручну.`
+        : "";
     await ctx.editMessageText(
-      `Скасувати запис <b>${esc(booking.name)}</b> (${esc(pluralSeats(booking.seats))})? Місця звільняться, клієнт отримає лист. Кошти (${esc(formatUah(booking.amountKop))}) потрібно повернути вручну.`,
+      `Скасувати ${booking.status === "paid" ? "запис" : "заявку"} <b>${esc(booking.name)}</b> (${esc(pluralSeats(booking.seats))})? Місця звільняться, клієнт отримає лист.${money}`,
       {
         ...HTML,
         reply_markup: new InlineKeyboard()
@@ -466,9 +644,12 @@ export function createBot(db: Db, token: string): Bot {
       return;
     }
     const session = await getAdminSession(db, cancelled.sessionId);
-    let report = `❌ Запис скасовано: ${participantLine(cancelled)}\nПоверніть клієнту <b>${esc(formatUah(cancelled.amountKop))}</b>.`;
+    let report = `❌ Скасовано: ${participantLine(cancelled)}`;
+    if (cancelled.paidAt) {
+      report += `\nПоверніть клієнту <b>${esc(formatUah(cancelled.amountKop))}</b>.`;
+    }
     if (session) {
-      const result = await notifyCancelled([cancelled], session);
+      const result = await notifyCancelled(db, [cancelled], session);
       report += result.sent > 0
         ? "\nЛист клієнту надіслано."
         : "\n⚠️ Лист клієнту не надіслано, повідомте його самі.";
@@ -482,7 +663,7 @@ export function createBot(db: Db, token: string): Bot {
   bot.callbackQuery(/^cx:([0-9a-f-]{36})$/, async (ctx) => {
     await ctx.answerCallbackQuery();
     await ctx.editMessageText(
-      "Скасувати цю дату? Нові записи стануть неможливими. Учасникам піде лист про скасування. Гроші автоматично <b>не повертаються</b>: ви побачите список, кому повернути.",
+      "Скасувати цю дату? Нові заявки стануть неможливими. Усі, хто записався, отримають лист. Гроші автоматично <b>не повертаються</b>: ви побачите список, кому повернути.",
       {
         ...HTML,
         reply_markup: new InlineKeyboard()
@@ -501,12 +682,15 @@ export function createBot(db: Db, token: string): Bot {
       await ctx.editMessageText("Дату не знайдено або вже скасовано.");
       return;
     }
+    const paidGuests = participants.filter((p) => p.status === "paid");
     let refunds =
       participants.length === 0
-        ? "Оплачених записів не було."
-        : `Потрібно повернути кошти (${participants.length}):\n${participants.map(participantLine).join("\n")}`;
+        ? "Заявок і оплат не було."
+        : paidGuests.length === 0
+          ? `Заявок скасовано: ${participants.length}. Оплат не було.`
+          : `Потрібно повернути кошти (${paidGuests.length}):\n${paidGuests.map(participantLine).join("\n")}\nЗаявок без оплати скасовано: ${participants.length - paidGuests.length}.`;
     if (participants.length > 0) {
-      const result = await notifyCancelled(participants, cancelled);
+      const result = await notifyCancelled(db, participants, cancelled);
       refunds += `\n\nЛисти учасникам: надіслано ${result.sent}`;
       if (result.failed > 0) refunds += `\n⚠️ Не вдалося надіслати: ${result.failed}. Повідомте їх самі.`;
     }

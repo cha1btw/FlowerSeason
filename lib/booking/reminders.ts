@@ -7,7 +7,7 @@ import { siteUrl } from "../site.ts";
 import { escapeTelegramHtml } from "../telegram.ts";
 import { formatSessionDate, formatSessionTime } from "../time.ts";
 import { pluralSeats } from "../format.ts";
-import { reminderEmail } from "./messages.ts";
+import { emailFor } from "./email-templates.ts";
 
 // The cron job runs once a day, so "36 hours ahead" covers everything that
 // starts before the next run: each class gets exactly one reminder, sent
@@ -51,7 +51,9 @@ export async function sendDueReminders(
     if (claimed.length === 0) continue;
 
     const ok = await sendEmail(
-      reminderEmail(
+      await emailFor(
+        db,
+        "reminder",
         {
           name: booking.name,
           email: booking.email,

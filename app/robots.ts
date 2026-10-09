@@ -7,7 +7,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: "*",
       allow: "/",
-      disallow: ["/workshops/booking/", "/workshops/sandbox-pay/", "/api/"],
+      disallow: ["/workshops/booking/", "/api/"],
     },
     sitemap: `${origin}/sitemap.xml`,
   };

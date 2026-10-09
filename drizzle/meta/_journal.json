@@ -15,6 +15,20 @@
       "when": 1791582128302,
       "tag": "0001_booking_cancelled",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791583586035,
+      "tag": "0002_requests_without_payment",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791584058482,
+      "tag": "0003_email_templates",
+      "breakpoints": true
     }
   ]
 }
