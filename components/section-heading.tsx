@@ -27,7 +27,7 @@ export function SectionHeading({
           {title}
         </h2>
         {subtitle ? (
-          <p className="mt-6 max-w-2xl text-base leading-relaxed sm:text-lg">
+          <p className="mt-6 max-w-2xl text-base leading-relaxed whitespace-pre-line">
             {subtitle}
           </p>
         ) : null}

@@ -27,10 +27,3 @@ test("editorial galleries do not render repeated static image slots", () => {
   assert.doesNotMatch(pageSource, /flowerBar\.media\.detail/);
   assert.match(contentSource, /videoPoster: "\/media\/workshops-kit\.webp"/);
 });
-
-test("mobile galleries use full-width image rhythm instead of narrow side tiles", () => {
-  const pageSource = readFileSync(new URL("../app/business/page.tsx", import.meta.url), "utf8");
-
-  assert.match(pageSource, /col-span-12 aspect-\[4\/5\] overflow-hidden bg-line sm:col-span-5/);
-  assert.match(pageSource, /col-span-12 mt-3 aspect-\[4\/3\] overflow-hidden bg-line/);
-});

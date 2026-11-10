@@ -82,7 +82,7 @@ export function Header({ brand, navigation, homeHref = "#top" }: HeaderProps) {
                 <li key={link.href}>
                   <a
                     href={link.href}
-                    className="flex items-baseline justify-between py-5 text-[clamp(2rem,11vw,4rem)] font-light leading-none tracking-[-0.035em] active:opacity-50"
+                    className="flex items-baseline justify-between py-5 text-base font-light leading-none tracking-[-0.035em] active:opacity-50"
                     onClick={() => setOpen(false)}
                   >
                     <span>{link.label}</span>

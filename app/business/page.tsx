@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowUpRight, ChevronDown } from "lucide-react";
+import { MediaGallery } from "@/components/media-gallery";
 import { ContactForm } from "@/components/contact-form";
 import { Header } from "@/components/header";
 import { InquiryLink } from "@/components/inquiry-link";
@@ -54,8 +55,9 @@ export default function HomePage() {
               <p className="mb-6 text-[11px] tracking-[0.2em] sm:mb-10">
                 {hero.eyebrow}
               </p>
-              <h1 className="max-w-[15ch] whitespace-pre-line text-[clamp(3.3rem,10vw,10rem)] font-light leading-[0.84] tracking-[-0.055em]">
-                {hero.title}
+              <h1 className="w-fit max-w-full text-[clamp(2.8rem,9vw,10rem)] font-light leading-[0.9] tracking-[-0.055em]">
+                <span className="block">CHRISTMAS</span>
+                <span className="block text-[0.51em] tracking-[-0.035em]">BY FLOWER SEASON</span>
               </h1>
             </Reveal>
 
@@ -91,7 +93,7 @@ export default function HomePage() {
               />
             </Reveal>
 
-            <div className="mt-16 grid gap-y-16 border-b border-line pb-16 sm:grid-cols-3 sm:gap-x-5 lg:mt-24 lg:gap-x-8">
+            <div className="mt-16 grid gap-y-16 border-b border-line pb-16 grid-cols-3 gap-x-2 sm:gap-x-5 lg:mt-24 lg:gap-x-8">
               {create.items.map((item, index) => (
                 <Reveal key={item.title} delay={index * 0.08}>
                   <article className="group">
@@ -105,18 +107,18 @@ export default function HomePage() {
                           className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
                         />
                       </div>
-                      <div className="mt-6 flex items-start gap-5">
+                      <div className="mt-3 flex items-start gap-2 sm:mt-6 sm:gap-5">
                         <span className="pt-1 text-[10px] tracking-[0.15em]">
                           {item.number}
                         </span>
                         <div>
-                          <h3 className="text-xl font-light tracking-[-0.02em] lg:text-2xl">
+                          <h3 className="text-[clamp(0.65rem,1.5vw,1.5rem)] font-light tracking-[-0.02em]">
                             {item.title}
                           </h3>
-                          <p className="mt-3 max-w-sm text-sm leading-relaxed text-neutral-600">
+                          <p className="mt-3 hidden max-w-sm text-base leading-relaxed text-neutral-600 sm:block">
                             {item.description}
                           </p>
-                          <span className="mt-5 inline-block border-b border-ink pb-1 text-[10px] tracking-[0.15em]">
+                          <span className="mt-5 hidden border-b sm:inline-block border-ink pb-1 text-[10px] tracking-[0.15em]">
                             {create.actionLabel}
                           </span>
                         </div>
@@ -141,56 +143,26 @@ export default function HomePage() {
 
             <div className="mt-16 grid grid-cols-12 gap-y-12 lg:mt-24">
               <Reveal className="col-span-12 lg:col-span-5 lg:col-start-7">
-                <p className="text-lg leading-relaxed sm:text-xl">{decor.description}</p>
+                <p className="text-base leading-relaxed">{decor.description}</p>
                 <p className="mt-8 border-t border-line pt-5 text-xs leading-loose tracking-[0.11em] text-neutral-600">
                   {decor.tags}
                 </p>
               </Reveal>
 
-              <div className="col-span-12 mt-4 grid grid-cols-12 gap-3 sm:gap-5 lg:mt-12">
-                <Reveal className="group relative col-span-12 aspect-[16/10] overflow-hidden bg-line sm:col-span-7 sm:aspect-[5/4]">
-                  <Image
-                    src={decor.images[0].src}
-                    alt={decor.images[0].alt}
-                    fill
-                    sizes="(max-width: 639px) 100vw, 67vw"
-                    className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
-                  />
-                </Reveal>
-                <Reveal delay={0.08} className="group relative col-span-12 aspect-[4/5] overflow-hidden bg-line sm:col-span-5 sm:row-span-2 sm:aspect-auto">
-                  <Image
-                    src={decor.images[1].src}
-                    alt={decor.images[1].alt}
-                    fill
-                    sizes="(max-width: 639px) 58vw, 33vw"
-                    className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
-                  />
-                </Reveal>
-                <Reveal delay={0.12} className="group relative col-span-12 mt-3 aspect-[4/3] overflow-hidden bg-line sm:col-span-6 sm:col-start-2 sm:mt-0">
-                  <Image
-                    src={decor.images[2].src}
-                    alt={decor.images[2].alt}
-                    fill
-                    sizes="(max-width: 639px) 42vw, 33vw"
-                    className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
-                  />
-                </Reveal>
+              <div className="col-span-12 mt-4 max-w-3xl lg:mt-12">
+                <MediaGallery items={decor.images} label="Christmas decor" />
               </div>
 
               <div className="col-span-12 mt-8 grid grid-cols-12 gap-y-12 border-t border-line pt-8 lg:mt-16">
                 <ul className="col-span-12 grid gap-2 sm:col-span-7">
                   {decor.services.map((service, index) => (
-                    <li
-                      key={service}
-                      className="flex items-baseline gap-5 border-b border-line py-3 text-2xl font-light tracking-[-0.02em] sm:text-4xl"
-                    >
-                      <span className="text-[10px] tracking-[0.14em]">0{index + 1}</span>
-                      {service}
+                    <li key={service.title} className="border-b border-line py-4">
+                      <h3 className="text-xl font-light"><span className="mr-4 text-xs">0{index + 1}</span>{service.title}</h3>
+                      <p className="mt-2 pl-9 text-base leading-relaxed text-neutral-600">{service.description}</p>
                     </li>
                   ))}
                 </ul>
-                <div className="col-span-12 flex flex-col items-start justify-between gap-10 sm:col-span-4 sm:col-start-9">
-                  <p className="text-xs leading-loose tracking-[0.14em]">{decor.process}</p>
+                <div className="col-span-12 flex flex-col items-start justify-end sm:col-span-4 sm:col-start-9">
                   <InquiryLink interest={decor.interest} className={ctaClass}>
                     {decor.cta}
                     <ArrowUpRight size={17} strokeWidth={1.4} aria-hidden="true" />
@@ -211,57 +183,30 @@ export default function HomePage() {
               />
             </Reveal>
 
-            <div className="mt-16 grid grid-cols-12 gap-3 sm:gap-5 lg:mt-24">
-              <Reveal className="group relative col-span-12 aspect-[4/5] overflow-hidden bg-line sm:col-span-7 sm:aspect-[4/5]">
-                <Image
-                  src={workshops.media.image}
-                  alt={workshops.media.imageAlt}
-                  fill
-                  sizes="(max-width: 639px) 100vw, 58vw"
-                  className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
-                />
-              </Reveal>
-              <div className="col-span-12 grid grid-cols-2 gap-3 sm:col-span-5 sm:grid-cols-1 sm:gap-5">
-                <Reveal delay={0.08} className="group relative aspect-[3/4] overflow-hidden bg-line sm:aspect-auto">
-                  <Image
-                    src={workshops.media.detail}
-                    alt={workshops.media.detailAlt}
-                    fill
-                    sizes="(max-width: 639px) 50vw, 42vw"
-                    className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
-                  />
-                </Reveal>
-                <Reveal delay={0.12} className="relative aspect-[3/4] overflow-hidden bg-line sm:aspect-auto">
-                  <Image
-                    src={workshops.media.videoPoster}
-                    alt={workshops.media.videoLabel}
-                    fill
-                    sizes="(max-width: 639px) 50vw, 42vw"
-                    className="object-cover"
-                  />
-                  <video
-                    className="motion-video absolute inset-0 size-full object-cover"
-                    src={workshops.media.video}
-                    poster={workshops.media.videoPoster}
-                    aria-label={workshops.media.videoLabel}
-                    autoPlay
-                    muted
-                    loop
-                    playsInline
-                    preload="metadata"
-                  />
-                </Reveal>
+            <div className="mt-16 max-w-3xl lg:mt-24">
+              <div className="relative aspect-[3/4] overflow-hidden bg-line">
+                <video src={workshops.media.video} poster={workshops.media.videoPoster} aria-label={workshops.media.videoLabel} className="size-full object-cover" autoPlay muted loop playsInline controls preload="metadata" />
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                {[{src: workshops.media.image, alt: workshops.media.imageAlt}, {src: workshops.media.detail, alt: workshops.media.detailAlt}].map((item) => (
+                  <div key={item.src} className="relative aspect-[3/4] overflow-hidden bg-line"><Image src={item.src} alt={item.alt} fill sizes="50vw" className="object-cover" /></div>
+                ))}
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                {["/media/new/video-5.mp4", "/media/new/video-6.mp4"].map((src) => (
+                  <video key={src} src={src} className="aspect-[3/4] w-full object-cover" muted loop playsInline controls preload="metadata" />
+                ))}
               </div>
             </div>
 
             <div className="mt-16 grid grid-cols-12 gap-y-12 border-t border-line pt-8 lg:mt-24">
               <Reveal className="col-span-12 lg:col-span-5">
-                <p className="text-lg leading-relaxed sm:text-xl">{workshops.description}</p>
+                <p className="text-base leading-relaxed">{workshops.description}</p>
               </Reveal>
               <Reveal delay={0.08} className="col-span-12 lg:col-span-5 lg:col-start-7">
                 <ul className="divide-y divide-line border-y border-line">
                   {workshops.details.map((detail, index) => (
-                    <li key={detail} className="flex gap-5 py-4 text-sm leading-relaxed">
+                    <li key={detail} className="flex gap-5 py-4 text-base leading-relaxed">
                       <span className="text-[10px] tracking-[0.14em]">0{index + 1}</span>
                       {detail}
                     </li>
@@ -289,10 +234,10 @@ export default function HomePage() {
 
             <div className="mt-16 grid grid-cols-12 gap-y-12 lg:mt-24">
               <Reveal className="col-span-12 sm:col-span-5">
-                <p className="text-lg leading-relaxed sm:text-xl">{gifts.description}</p>
+                <p className="text-base leading-relaxed">{gifts.description}</p>
                 <ul className="mt-10 divide-y divide-line border-y border-line">
                   {gifts.details.map((detail, index) => (
-                    <li key={detail} className="flex gap-5 py-4 text-sm leading-relaxed">
+                    <li key={detail} className="flex gap-5 py-4 text-base leading-relaxed">
                       <span className="text-[10px] tracking-[0.14em]">0{index + 1}</span>
                       {detail}
                     </li>
@@ -304,25 +249,11 @@ export default function HomePage() {
                 </InquiryLink>
               </Reveal>
 
-              <div className="col-span-12 grid grid-cols-12 gap-3 sm:col-span-6 sm:col-start-7 sm:gap-5">
-                <Reveal delay={0.05} className="group relative col-span-12 aspect-[4/5] overflow-hidden bg-line sm:col-span-7">
-                  <Image
-                    src={gifts.images[0].src}
-                    alt={gifts.images[0].alt}
-                    fill
-                    sizes="(max-width: 639px) 67vw, 40vw"
-                    className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
-                  />
-                </Reveal>
-                <Reveal delay={0.1} className="group relative col-span-12 mt-3 aspect-[4/3] overflow-hidden bg-line sm:col-span-5 sm:mt-24 sm:aspect-[3/5]">
-                  <Image
-                    src={gifts.images[1].src}
-                    alt={gifts.images[1].alt}
-                    fill
-                    sizes="(max-width: 639px) 33vw, 20vw"
-                    className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
-                  />
-                </Reveal>
+              <div className="col-span-12 sm:col-span-6 sm:col-start-7">
+                <div className="relative aspect-[3/4] overflow-hidden bg-line"><Image src={gifts.images[0].src} alt={gifts.images[0].alt} fill sizes="50vw" className="object-cover" /></div>
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  {["/media/new/video-7.mp4", "/media/new/video-8.mp4"].map((src) => <video key={src} src={src} className="aspect-[3/4] w-full object-cover" muted loop playsInline controls preload="metadata" />)}
+                </div>
               </div>
             </div>
           </div>
@@ -339,48 +270,18 @@ export default function HomePage() {
               />
             </Reveal>
 
-            <div className="mt-16 grid grid-cols-12 gap-3 sm:gap-5 lg:mt-24">
-              <Reveal className="group relative col-span-12 aspect-[4/5] overflow-hidden bg-neutral-800 sm:col-span-6 sm:aspect-[4/5]">
-                <Image
-                  src={flowerBar.media.main}
-                  alt={flowerBar.media.mainAlt}
-                  fill
-                  sizes="(max-width: 639px) 100vw, 50vw"
-                  className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
-                />
-              </Reveal>
-              <div className="col-span-12 grid grid-cols-12 gap-3 sm:col-span-6 sm:gap-5">
-                <Reveal delay={0.08} className="relative col-span-12 aspect-[4/5] overflow-hidden bg-neutral-800 sm:aspect-auto">
-                  <Image
-                    src={flowerBar.media.videoPoster}
-                    alt={flowerBar.media.videoLabel}
-                    fill
-                    sizes="(max-width: 639px) 58vw, 34vw"
-                    className="object-cover"
-                  />
-                  <video
-                    className="motion-video absolute inset-0 size-full object-cover"
-                    src={flowerBar.media.video}
-                    poster={flowerBar.media.videoPoster}
-                    aria-label={flowerBar.media.videoLabel}
-                    autoPlay
-                    muted
-                    loop
-                    playsInline
-                    preload="metadata"
-                  />
-                </Reveal>
-              </div>
+            <div className="mt-16 max-w-3xl lg:mt-24">
+              <video src={flowerBar.media.video} poster={flowerBar.media.videoPoster} aria-label={flowerBar.media.videoLabel} className="aspect-[3/4] w-full object-cover" autoPlay muted loop playsInline controls preload="metadata" />
             </div>
 
             <div className="mt-16 grid grid-cols-12 gap-y-12 border-t border-white/25 pt-8 lg:mt-24">
               <Reveal className="col-span-12 lg:col-span-5">
-                <p className="text-lg leading-relaxed sm:text-xl">{flowerBar.description}</p>
+                <p className="text-base leading-relaxed">{flowerBar.description}</p>
               </Reveal>
               <Reveal delay={0.08} className="col-span-12 lg:col-span-5 lg:col-start-7">
                 <ul className="divide-y divide-white/20 border-y border-white/20">
                   {flowerBar.details.map((detail, index) => (
-                    <li key={detail} className="flex gap-5 py-4 text-sm leading-relaxed">
+                    <li key={detail} className="flex gap-5 py-4 text-base leading-relaxed">
                       <span className="text-[10px] tracking-[0.14em]">0{index + 1}</span>
                       {detail}
                     </li>
@@ -404,23 +305,15 @@ export default function HomePage() {
                 subtitle={projects.subtitle}
               />
             </Reveal>
-            <div className="mt-16 grid gap-12 sm:grid-cols-3 sm:gap-5 lg:mt-24">
+            <div className="mt-16 flex snap-x snap-mandatory gap-4 overflow-x-auto pb-4 sm:grid sm:grid-cols-3 sm:overflow-visible lg:mt-24">
               {projects.items.map((project, index) => (
-                <Reveal key={project.title} delay={index * 0.08}>
-                  <article className="group">
-                    <div className={`relative overflow-hidden bg-line ${index === 1 ? "aspect-[4/5] sm:mt-20" : "aspect-[3/4]"}`}>
-                      <Image
-                        src={project.image}
-                        alt={project.alt}
-                        fill
-                        sizes="(max-width: 639px) 100vw, 33vw"
-                        className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
-                      />
-                    </div>
-                    <h3 className="mt-5 text-lg font-light tracking-[-0.015em]">{project.title}</h3>
-                    <p className="mt-2 text-[10px] tracking-[0.14em] text-neutral-500">{project.meta}</p>
-                  </article>
-                </Reveal>
+                <article key={`${project.title}-${index}`} className="w-[78vw] max-w-sm shrink-0 snap-center sm:w-auto sm:max-w-none">
+                  <div className="relative aspect-[3/4] overflow-hidden bg-line">
+                    {"video" in project ? <video src={project.video} aria-label={project.alt} className="size-full object-cover" muted loop playsInline controls preload="metadata" /> : <Image src={project.image} alt={project.alt} fill sizes="(max-width: 639px) 80vw, 33vw" className="object-cover" />}
+                  </div>
+                  <h3 className="mt-3 text-lg font-light">{project.title}</h3>
+                  <p className="mt-1 text-sm text-neutral-500">{project.meta}</p>
+                </article>
               ))}
             </div>
           </div>
@@ -441,7 +334,7 @@ export default function HomePage() {
                 <ContactForm />
               </Reveal>
               <Reveal delay={0.08} className="col-span-12 lg:col-span-5 lg:col-start-8">
-                <div className="group relative aspect-[4/5] overflow-hidden bg-line">
+                <div className="group relative aspect-[3/4] overflow-hidden bg-line">
                   <Image
                     src={contact.image}
                     alt={contact.imageAlt}
@@ -451,7 +344,7 @@ export default function HomePage() {
                   />
                 </div>
                 <div className="mt-8 border-t border-line pt-6">
-                  <p className="text-sm leading-relaxed">{contact.directPrefix}</p>
+                  <p className="text-base leading-relaxed">{contact.directPrefix}</p>
                   <a
                     href={contacts.telegram.url}
                     target="_blank"

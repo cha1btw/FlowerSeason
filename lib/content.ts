@@ -62,9 +62,9 @@ export const siteContent = {
     links: [
       { label: "Decor", href: "#decor" },
       { label: "Workshops", href: "#workshops" },
-      { label: "For individuals", href: "/workshops" },
       { label: "Gifts", href: "#gifts" },
-      { label: "Projects", href: "#projects" },
+      { label: "Experience", href: "#projects" },
+      { label: "For individuals", href: "/workshops" },
       { label: "Contact", href: "#contact" },
     ],
   },
@@ -72,7 +72,7 @@ export const siteContent = {
     eyebrow: "SEASON 2026 / 27",
     title: "CHRISTMAS\nBY FLOWER SEASON",
     subtitle:
-      "Святкове оформлення, корпоративні подарунки та майстер-класи для вашої команди.",
+      "Створюємо особливу різдвяну атмосферу для вашого бізнесу!",
     cta: "ОБГОВОРИТИ ПРОЄКТ",
     ctaHref: "#contact",
     image: "/media/hero.webp",
@@ -84,7 +84,7 @@ export const siteContent = {
     index: "02",
     title: "WHAT WE CREATE",
     subtitle:
-      "Створюємо Christmas для бізнесів — від оформлення простору до подарунків для команди та святкових подій.",
+      "Авторське оформлення просторів і подій, корпоративні майстер-класи та святкові подарунки для команд і партнерів!",
     actionLabel: "ДЕТАЛЬНІШЕ ↓",
     items: [
       {
@@ -93,8 +93,8 @@ export const siteContent = {
         description:
           "Святкове оформлення просторів та подій — від концепції до реалізації.",
         href: "#decor",
-        image: "/media/create-decor.webp",
-        imageAlt: "Різдвяний вінок з живої хвої та оливковою стрічкою",
+        image: "/media/new/photo-1.webp",
+        imageAlt: "Червона святкова фотозона",
       },
       {
         number: "02",
@@ -126,36 +126,27 @@ export const siteContent = {
     tags:
       "Офіси · ресторани · магазини · шоуруми · корпоративні події · святкові вечері",
     services: [
-      "Ялинки",
-      "Святкові столи",
-      "Фотозони",
-      "Welcome-зони",
-      "Флористика",
-      "Сезонний декор",
+      { title: "Оформлення просторів", description: "Святкове оформлення офісів, ресторанів, магазинів та комерційних просторів." },
+      { title: "Оформлення подій", description: "Корпоративи, святкові вечері, презентації та особливі події." },
+      { title: "Вітрини та фасади", description: "Різдвяні композиції, декор вхідних груп та оформлення вітрин." },
+      { title: "Фотозони та welcome-зони", description: "Авторські фотозони та атмосферні зони зустрічі гостей." },
+      { title: "Ялинки та інсталяції", description: "Класичні й авторські ялинки, декоративні конструкції та артоб’єкти." },
+      { title: "Святкова флористика", description: "Різдвяні вінки, композиції та флористичні акценти для просторів і подій." },
     ],
-    process: "CONCEPT · FLORISTRY · DECOR · PRODUCTION · INSTALLATION",
     cta: "ОБГОВОРИТИ ОФОРМЛЕННЯ",
     interest: "decor" as InterestValue,
     images: [
-      {
-        src: "/media/decor-wide.webp",
-        alt: "Святковий стіл з хвойним декором та високими свічками",
-      },
-      {
-        src: "/media/decor-portrait.webp",
-        alt: "Флористка з різдвяним вінком біля оформленої вітрини",
-      },
-      {
-        src: "/media/decor-detail.webp",
-        alt: "Темна хвойна композиція з теплими гірляндами",
-      },
+      { src: "/media/new/photo-1.webp", alt: "Червона святкова фотозона" },
+      { src: "/media/new/video-2.mp4", alt: "Різдвяне оформлення, відео 2", type: "video" as const },
+      { src: "/media/new/video-3.mp4", alt: "Різдвяне оформлення, відео 3", type: "video" as const },
+      { src: "/media/new/video-4.mp4", alt: "Різдвяне оформлення, відео 4", type: "video" as const },
     ],
   },
   workshops: {
     id: "workshops",
     index: "04",
     title: "CORPORATE WORKSHOPS",
-    subtitle: "Christmas, створений власноруч.",
+    subtitle: "Christmas створений власноруч!",
     description:
       "Організовуємо камерні та масштабні різдвяні майстер-класи для команд і гостей бренду. Ми привозимо матеріали, інструменти та флористів — вам залишається зібратися разом і створити власний святковий об’єкт.",
     details: [
@@ -210,7 +201,7 @@ export const siteContent = {
     id: "flower-bar",
     index: "06",
     title: "FLOWER BAR",
-    subtitle: "Жива флористична взаємодія для вашої події.",
+    subtitle: "",
     description:
       "Створюємо pop-up flower bar, де гості обирають квіти, сезонну хвою та деталі, а наші флористи збирають персональний букет або композицію просто на події. Формат легко інтегрується у запуск, корпоративний вечір чи клієнтський день.",
     details: [
@@ -234,26 +225,14 @@ export const siteContent = {
     index: "PROJECTS",
     title: "SELECTED MOMENTS",
     subtitle:
-      "Фрагменти святкових проєктів, створених для просторів, брендів і команд.",
+      "Фрагменти реалізованих святкових проєктів, створених для просторів, брендів та команд!",
     items: [
-      {
-        title: "SPACE DECOR",
-        meta: "RESTAURANT · KYIV",
-        image: "/media/project-matilda.webp",
-        alt: "Монтаж великого хвойного вінка біля ресторану",
-      },
-      {
-        title: "TABLE SETTING",
-        meta: "PRIVATE EVENT · KYIV",
-        image: "/media/project-table.webp",
-        alt: "Персоналізоване різдвяне сервірування столу",
-      },
-      {
-        title: "FLOWER SEASON EXPERIENCE",
-        meta: "CORPORATE EVENT · KYIV",
-        image: "/media/decor-portrait.webp",
-        alt: "Флористка Flower Season завершує святкове оформлення",
-      },
+      { title: "CORPORATE DECOR", meta: "Святкова фотозона", image: "/media/new/photo-1.webp", alt: "Червона святкова фотозона" },
+      { title: "CORPORATE EVENT", meta: "Святкова подія", video: "/media/new/video-9.mp4", alt: "Корпоративна святкова подія, відео 9" },
+      { title: "CORPORATE EVENT", meta: "Святкова подія", video: "/media/new/video-10.mp4", alt: "Корпоративна святкова подія, відео 10" },
+      { title: "SPACE DECOR", meta: "Оформлення простору", video: "/media/new/video-11.mp4", alt: "Різдвяне оформлення простору" },
+      { title: "SPACE DECOR", meta: "Оформлення простору", video: "/media/new/video-12.mp4", alt: "Різдвяне оформлення простору" },
+      { title: "TABLE SETTING", meta: "Святкове сервірування", image: "/media/project-table.webp", alt: "Персоналізоване різдвяне сервірування столу" },
     ],
   },
   contact: {
@@ -261,7 +240,7 @@ export const siteContent = {
     index: "07",
     title: "LET’S CREATE YOUR CHRISTMAS",
     subtitle:
-      "Розкажіть коротко про ваш запит — ми запропонуємо формат, уточнимо деталі та підготуємо індивідуальну концепцію.",
+      "Маєте ідею? Або поки лише мрієте про особливу святкову атмосферу?)\n\nРозкажіть нам трішки про ваші побажання, а ми з радістю допоможемо втілити їх у життя!\n\nЗаповніть коротку форму нижче — і зовсім скоро будемо знайомитися ближче;)",
     image: "/media/contact.webp",
     imageAlt: "Різдвяний вінок у процесі створення",
     fields: {
