@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowUpRight, ChevronDown } from "lucide-react";
-import { MediaGallery } from "@/components/media-gallery";
+import { MediaCarousel } from "@/components/media-carousel";
 import { ContactForm } from "@/components/contact-form";
 import { Header } from "@/components/header";
 import { InquiryLink } from "@/components/inquiry-link";
@@ -55,9 +55,11 @@ export default function HomePage() {
               <p className="mb-6 text-[11px] tracking-[0.2em] sm:mb-10">
                 {hero.eyebrow}
               </p>
-              <h1 className="w-fit max-w-full text-[clamp(2.8rem,9vw,10rem)] font-light leading-[0.9] tracking-[-0.055em]">
-                <span className="block">CHRISTMAS</span>
-                <span className="block text-[0.51em] tracking-[-0.035em]">BY FLOWER SEASON</span>
+              <h1 className="w-full max-w-[1000px]" aria-label={hero.title.replace("\n", " ")}>
+                <svg viewBox="0 0 1000 260" className="block w-full fill-current" aria-hidden="true" preserveAspectRatio="xMinYMid meet">
+                  <text x="0" y="146" textLength="1000" lengthAdjust="spacingAndGlyphs" fontSize="168" fontWeight="300">CHRISTMAS</text>
+                  <text x="0" y="248" textLength="1000" lengthAdjust="spacingAndGlyphs" fontSize="86" fontWeight="300">BY FLOWER SEASON</text>
+                </svg>
               </h1>
             </Reveal>
 
@@ -149,8 +151,8 @@ export default function HomePage() {
                 </p>
               </Reveal>
 
-              <div className="col-span-12 mt-4 max-w-3xl lg:mt-12">
-                <MediaGallery items={decor.images} label="Christmas decor" />
+              <div className="col-span-12 mt-4 lg:mt-12">
+                <MediaCarousel items={decor.images.map((item) => ({ ...item, type: "type" in item ? item.type : "image" as const }))} label="Christmas decor" />
               </div>
 
               <div className="col-span-12 mt-8 grid grid-cols-12 gap-y-12 border-t border-line pt-8 lg:mt-16">
@@ -183,20 +185,15 @@ export default function HomePage() {
               />
             </Reveal>
 
-            <div className="mt-16 max-w-3xl lg:mt-24">
-              <div className="relative aspect-[3/4] overflow-hidden bg-line">
-                <video src={workshops.media.video} poster={workshops.media.videoPoster} aria-label={workshops.media.videoLabel} className="size-full object-cover" autoPlay muted loop playsInline controls preload="metadata" />
-              </div>
-              <div className="mt-3 grid grid-cols-2 gap-3">
-                {[{src: workshops.media.image, alt: workshops.media.imageAlt}, {src: workshops.media.detail, alt: workshops.media.detailAlt}].map((item) => (
-                  <div key={item.src} className="relative aspect-[3/4] overflow-hidden bg-line"><Image src={item.src} alt={item.alt} fill sizes="50vw" className="object-cover" /></div>
-                ))}
-              </div>
-              <div className="mt-3 grid grid-cols-2 gap-3">
-                {["/media/new/video-5.mp4", "/media/new/video-6.mp4"].map((src) => (
-                  <video key={src} src={src} className="aspect-[3/4] w-full object-cover" muted loop playsInline controls preload="metadata" />
-                ))}
-              </div>
+            <div className="mt-16 lg:mt-24">
+              <MediaCarousel label="Corporate workshops" items={[
+                { src: workshops.media.video, alt: workshops.media.videoLabel, type: "video", poster: workshops.media.videoPoster },
+                { src: workshops.media.image, alt: workshops.media.imageAlt },
+                { src: workshops.media.detail, alt: workshops.media.detailAlt },
+                { src: workshops.media.kit, alt: workshops.media.kitAlt },
+                { src: "/media/new/video-5.mp4", alt: "Різдвяний майстер-клас, відео 5", type: "video" },
+                { src: "/media/new/video-6.mp4", alt: "Різдвяний майстер-клас, відео 6", type: "video" },
+              ]} />
             </div>
 
             <div className="mt-16 grid grid-cols-12 gap-y-12 border-t border-line pt-8 lg:mt-24">
@@ -250,10 +247,11 @@ export default function HomePage() {
               </Reveal>
 
               <div className="col-span-12 sm:col-span-6 sm:col-start-7">
-                <div className="relative aspect-[3/4] overflow-hidden bg-line"><Image src={gifts.images[0].src} alt={gifts.images[0].alt} fill sizes="50vw" className="object-cover" /></div>
-                <div className="mt-3 grid grid-cols-2 gap-3">
-                  {["/media/new/video-7.mp4", "/media/new/video-8.mp4"].map((src) => <video key={src} src={src} className="aspect-[3/4] w-full object-cover" muted loop playsInline controls preload="metadata" />)}
-                </div>
+                <MediaCarousel label="Corporate gifts" items={[
+                  ...gifts.images.map((item) => ({ ...item, type: "image" as const })),
+                  { src: "/media/new/video-7.mp4", alt: "Корпоративні подарунки, відео 7", type: "video" },
+                  { src: "/media/new/video-8.mp4", alt: "Корпоративні подарунки, відео 8", type: "video" },
+                ]} />
               </div>
             </div>
           </div>
@@ -270,8 +268,8 @@ export default function HomePage() {
               />
             </Reveal>
 
-            <div className="mt-16 max-w-3xl lg:mt-24">
-              <video src={flowerBar.media.video} poster={flowerBar.media.videoPoster} aria-label={flowerBar.media.videoLabel} className="aspect-[3/4] w-full object-cover" autoPlay muted loop playsInline controls preload="metadata" />
+            <div className="mt-16 lg:mt-24">
+              <MediaCarousel label="Flower bar" inverse items={[{ src: flowerBar.media.video, alt: flowerBar.media.videoLabel, poster: flowerBar.media.videoPoster, type: "video" }]} />
             </div>
 
             <div className="mt-16 grid grid-cols-12 gap-y-12 border-t border-white/25 pt-8 lg:mt-24">
@@ -305,16 +303,14 @@ export default function HomePage() {
                 subtitle={projects.subtitle}
               />
             </Reveal>
-            <div className="mt-16 flex snap-x snap-mandatory gap-4 overflow-x-auto pb-4 sm:grid sm:grid-cols-3 sm:overflow-visible lg:mt-24">
-              {projects.items.map((project, index) => (
-                <article key={`${project.title}-${index}`} className="w-[78vw] max-w-sm shrink-0 snap-center sm:w-auto sm:max-w-none">
-                  <div className="relative aspect-[3/4] overflow-hidden bg-line">
-                    {"video" in project ? <video src={project.video} aria-label={project.alt} className="size-full object-cover" muted loop playsInline controls preload="metadata" /> : <Image src={project.image} alt={project.alt} fill sizes="(max-width: 639px) 80vw, 33vw" className="object-cover" />}
-                  </div>
-                  <h3 className="mt-3 text-lg font-light">{project.title}</h3>
-                  <p className="mt-1 text-sm text-neutral-500">{project.meta}</p>
-                </article>
-              ))}
+            <div className="mt-16 lg:mt-24">
+              <MediaCarousel label="Selected moments" items={projects.items.map((project) => ({
+                src: "video" in project ? project.video : project.image,
+                alt: project.alt,
+                type: "video" in project ? "video" as const : "image" as const,
+                title: project.title,
+                caption: project.meta,
+              }))} />
             </div>
           </div>
         </section>
