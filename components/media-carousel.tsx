@@ -36,7 +36,7 @@ export function MediaCarousel({ items, label, inverse = false }: { items: readon
           <article key={`${item.src}-${index}`} data-carousel-card className="w-[78vw] max-w-[440px] shrink-0 snap-start sm:w-[40vw] lg:w-[29vw]">
             <div className="relative aspect-[3/4] overflow-hidden bg-line">
               {item.type === "video" ? (
-                <video src={item.src} poster={item.poster} aria-label={item.alt} className="size-full object-cover" muted playsInline controls preload="metadata" />
+                <video src={item.src} poster={item.poster ?? item.src.replace(/\.mp4$/, "-poster.webp")} aria-label={item.alt} className="size-full object-cover" muted playsInline controls preload="metadata" />
               ) : (
                 <Image src={item.src} alt={item.alt} fill sizes="(max-width: 639px) 78vw, (max-width: 1023px) 40vw, 29vw" className="object-cover" />
               )}

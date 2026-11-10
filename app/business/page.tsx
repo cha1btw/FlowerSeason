@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowUpRight, ChevronDown } from "lucide-react";
 import { MediaCarousel } from "@/components/media-carousel";
+import { HeroTitle } from "@/components/hero-title";
 import { ContactForm } from "@/components/contact-form";
 import { Header } from "@/components/header";
 import { InquiryLink } from "@/components/inquiry-link";
@@ -55,12 +56,7 @@ export default function HomePage() {
               <p className="mb-6 text-[11px] tracking-[0.2em] sm:mb-10">
                 {hero.eyebrow}
               </p>
-              <h1 className="w-full max-w-[1000px]" aria-label={hero.title.replace("\n", " ")}>
-                <svg viewBox="0 0 1000 260" className="block w-full fill-current" aria-hidden="true" preserveAspectRatio="xMinYMid meet">
-                  <text x="0" y="146" textLength="1000" lengthAdjust="spacingAndGlyphs" fontSize="168" fontWeight="300">CHRISTMAS</text>
-                  <text x="0" y="248" textLength="1000" lengthAdjust="spacingAndGlyphs" fontSize="86" fontWeight="300">BY FLOWER SEASON</text>
-                </svg>
-              </h1>
+              <HeroTitle />
             </Reveal>
 
             <Reveal delay={0.15} className="mt-10 grid grid-cols-12 gap-y-8 sm:mt-14">
