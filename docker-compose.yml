@@ -1,6 +1,3 @@
-# Local Postgres for development and tests only (not used in production).
-# Start: docker compose up -d
-# One-time: docker compose exec db createdb -U flowerseason flowerseason_test
 services:
   db:
     image: postgres:17
@@ -12,5 +9,25 @@ services:
       - "5433:5432"
     volumes:
       - flowerseason-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U flowerseason -d flowerseason"]
+      interval: 5s
+      retries: 10
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    volumes:
+      - .:/app
+    env_file:
+      - path: .env.local
+        required: false
+    environment:
+      DATABASE_URL: postgres://flowerseason:flowerseason@db:5432/flowerseason
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
 volumes:
   flowerseason-pgdata:

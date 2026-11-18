@@ -28,7 +28,9 @@ test("the owner's request message says who, when, how much and what to do next",
   assert.doesNotMatch(message, /<script>/);
 });
 
-test("the owner is warned when the customer email failed", () => {
-  const message = adminRequestMessage(details, { seatsLeft: 3, emailSent: false }, esc);
-  assert.match(message, /Лист клієнту не надіслано/);
+test("the owner sees the chosen messenger and comment", () => {
+  const message = adminRequestMessage({ ...details, messenger: "Viber", comment: "Біля вікна" }, { seatsLeft: 3 }, esc);
+  assert.match(message, /Viber/);
+  assert.match(message, /Біля вікна/);
+  assert.doesNotMatch(message, /Лист клієнту/);
 });

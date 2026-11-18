@@ -18,10 +18,8 @@ The site has two audiences:
 - Booking statuses: `requested` (seats held) -> `paid`, or `cancelled`.
 - Public status page for each request (`/workshops/booking/[id]`).
 - Telegram admin bot (grammY) for the owner: create dates, edit prices and seats,
-  review requests, mark them paid or cancel them, edit email templates, view stats.
-- Transactional emails through Resend (confirmation, reminders). Optional: without a
-  Resend key, emails are only printed to the server log.
-- Daily reminder job for paid guests (Vercel Cron).
+  review requests, mark them paid or cancel them, edit dates and prices, view stats.
+- Guests choose Telegram, WhatsApp or Viber; the owner contacts them personally.
 - Tests on the Node test runner (`npm test`). Database tests run only when
   `TEST_DATABASE_URL` is set.
 
@@ -30,7 +28,7 @@ The site has two audiences:
 - Next.js 16 (App Router), React 19, TypeScript
 - Tailwind CSS 4, Framer Motion, Lucide icons
 - PostgreSQL with Drizzle ORM and `drizzle-kit` migrations
-- grammY (Telegram bot), Resend (email)
+- grammY (Telegram bot)
 - Deployed on Vercel
 
 ## Project structure
@@ -38,7 +36,7 @@ The site has two audiences:
 ```
 app/            Routes: landing, /business, /workshops, /privacy, API routes
   api/telegram  Telegram webhook (checks the secret header)
-  api/cron/     Daily reminders job
+  api/cron/     Disabled legacy reminder endpoint
 components/     UI components (header, forms, booking panel, motion helpers)
 lib/
   booking/      Booking rules: availability, status, service, notifications, templates
@@ -77,7 +75,7 @@ error, never the samples.
 
 | Variable | Purpose |
 | --- | --- |
-| `NEXT_PUBLIC_SITE_URL` | Public site address, used in emails and the Telegram webhook |
+| `NEXT_PUBLIC_SITE_URL` | Public site address, used in the Telegram webhook |
 | `DATABASE_URL` | PostgreSQL connection string |
 | `TEST_DATABASE_URL` | Separate database for the DB tests (tests are skipped without it) |
 | `TELEGRAM_BOT_TOKEN` | Token from @BotFather |
@@ -86,7 +84,6 @@ error, never the samples.
 | `TELEGRAM_CHAT_ID` | Chat that receives contact-form messages. Also used as the admin list if `ADMIN_TELEGRAM_IDS` is empty |
 | `RESEND_API_KEY` | Resend API key (optional) |
 | `EMAIL_FROM` | Sender address, on a domain verified in Resend |
-| `CRON_SECRET` | Random string that Vercel Cron sends, so only Vercel can run reminders |
 
 Never commit `.env*` files. They are git-ignored.
 
@@ -127,7 +124,7 @@ The app is designed for Vercel:
 3. Set the environment variables above in the Vercel project.
 4. Register the Telegram webhook with the production address.
 
-`vercel.json` schedules the reminder job at 07:00 UTC every day.
+`vercel.json` does not schedule email reminders.
 
 The full go-live checklist, including the legal page and copy review, is in
 [docs/booking.md](docs/booking.md).
@@ -138,3 +135,25 @@ The full go-live checklist, including the legal page and copy review, is in
   (`lib/legal.ts`, `lib/content.ts`).
 - Online payment is intentionally not implemented. Payment links and refunds are
   handled manually by the owner.
+
+## December 2026 workshops and local Docker
+
+`docker compose up -d --build` starts both PostgreSQL and the Next.js app at
+`http://localhost:3000`. The app applies migrations and adds the five December
+2026 meetings on first start. PostgreSQL is exposed on `localhost:5433` for
+local tools and tests. A one-time seed marker preserves edits made in the bot
+on later builds or restarts.
+
+The booking form asks for a phone and a chosen messenger. New requests are
+recorded as `requested` and sent to `ADMIN_TELEGRAM_IDS` (or
+`TELEGRAM_CHAT_ID`) through `TELEGRAM_BOT_TOKEN`. Only a `paid` booking uses
+capacity; the bot checks free capacity inside a transaction before marking a
+request paid. Configure those Telegram values and
+`TELEGRAM_WEBHOOK_SECRET` in the deployment environment and register the
+webhook with `scripts/set-telegram-webhook.ts`. The local environment has no
+Telegram credentials, so Docker can run the site and database but cannot
+send a real bot notification until credentials are configured.
+
+The Vercel build applies migrations and seeds the schedule when `DATABASE_URL`
+is configured. Workshop emails and the reminder cron are disabled; the owner
+contacts guests personally in their chosen messenger.

@@ -1,13 +1,13 @@
 import type { Metadata, Viewport } from "next";
-import { Raleway } from "next/font/google";
+import localFont from "next/font/local";
 import { Analytics } from "@vercel/analytics/react";
 import { siteContent } from "@/lib/content";
 import { MotionProvider } from "@/components/motion-provider";
 import "./globals.css";
 
-const raleway = Raleway({
-  subsets: ["latin", "cyrillic"],
-  weight: ["300", "400", "500"],
+const raleway = localFont({
+  src: "../public/fonts/raleway-variable.ttf",
+  weight: "100 900",
   variable: "--font-raleway",
   display: "swap",
 });

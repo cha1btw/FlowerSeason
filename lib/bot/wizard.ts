@@ -45,7 +45,7 @@ export function parseTime(input: string): { hour: number; minute: number } | nul
 export function parseCapacity(input: string): number | null {
   if (!/^\d{1,3}$/.test(input.trim())) return null;
   const value = Number(input.trim());
-  return value >= 1 && value <= 50 ? value : null;
+  return value >= 1 && value <= 10 ? value : null;
 }
 
 // "1800", "1800.50", "1 800" -> kopecks. Whole hryvnias up to 100 000.

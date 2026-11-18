@@ -29,13 +29,13 @@ export function scheduleText(sessions: AdminSession[]): string {
 
 export function participantLine(b: Booking): string {
   const flag = b.status === "requested" ? "🕓 " : b.status === "paid" ? "✅ " : "";
-  return `${flag}${esc(b.name)} · ${esc(b.phone)} · ${esc(b.email)} · ${esc(pluralSeats(b.seats))}`;
+  return `${flag}${esc(b.name)} · ${esc(b.phone)} · ${esc(b.messenger)} · ${esc(pluralSeats(b.seats))}`;
 }
 
 export function sessionCardText(s: AdminSession, participants: Booking[]): string {
-  const free = Math.max(0, s.capacity - s.paidSeats - s.requestedSeats);
+  const free = Math.max(0, s.capacity - s.paidSeats);
   const header = [
-    `<b>${esc(when(s.startsAt))}</b>`,
+    `<b>${esc(s.title)}</b> · ${esc(when(s.startsAt))}`,
     `${s.status === "open" ? "🟢 Продаж відкрито" : s.status === "closed" ? "🔒 Продаж закрито" : "❌ Скасовано"}`,
     `Ціна: ${esc(formatUah(s.priceKop))} · Місць: ${s.capacity}`,
     `✅ Оплачено: <b>${s.paidSeats}</b> · 🕓 Чекають оплати: ${s.requestedSeats} · Вільно: ${free}`,
@@ -87,7 +87,7 @@ export function analyticsText(a: Analytics, upcoming: AdminSession[]): string {
   if (upcoming.length > 0) {
     lines.push("", "<b>Заповнюваність найближчих дат:</b>");
     for (const s of upcoming.slice(0, 10)) {
-      const taken = s.paidSeats + s.requestedSeats;
+      const taken = s.paidSeats;
       const pct = Math.round((taken / s.capacity) * 100);
       lines.push(
         `${formatSessionDate(s.startsAt)} ${formatSessionTime(s.startsAt)} · ${taken}/${s.capacity} (${pct}%) · оплачено ${esc(formatUah(s.revenueKop))}`,

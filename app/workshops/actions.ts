@@ -6,7 +6,7 @@ import { MAX_SEATS_PER_BOOKING } from "@/lib/booking/availability";
 import { announceRequest } from "@/lib/booking/request-events";
 import { createBooking } from "@/lib/booking/service";
 import type { CheckoutFormState } from "@/lib/checkout-form-state";
-import { isEmail, isUuid, normalizePhone } from "@/lib/checkout-validation";
+import { isUuid, normalizePhone } from "@/lib/checkout-validation";
 import { siteContent } from "@/lib/content";
 import { getDb } from "@/lib/db";
 import { readField } from "@/lib/form";
@@ -22,7 +22,8 @@ export async function submitRequest(
   const values = {
     name: readField(formData, "name", 80),
     phone: readField(formData, "phone", 30),
-    email: readField(formData, "email", 120),
+    messenger: readField(formData, "messenger", 20),
+    comment: readField(formData, "comment", 500),
     seats: readField(formData, "seats", 2) || "1",
   };
   const fail = (message: string): CheckoutFormState => ({
@@ -42,7 +43,7 @@ export async function submitRequest(
     !isUuid(sessionId) ||
     !values.name ||
     !phone ||
-    !isEmail(values.email) ||
+    !["Telegram", "WhatsApp", "Viber"].includes(values.messenger) ||
     !Number.isInteger(seats) ||
     seats < 1 ||
     seats > MAX_SEATS_PER_BOOKING
@@ -58,7 +59,8 @@ export async function submitRequest(
       sessionId,
       name: values.name,
       phone,
-      email: values.email,
+      messenger: values.messenger,
+      comment: values.comment,
       seats,
     });
 

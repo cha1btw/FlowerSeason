@@ -4,7 +4,7 @@ import { bookings, sessions, type Booking, type Session } from "../db/schema.ts"
 import { MAX_SEATS_PER_BOOKING, seatsLeft } from "./availability.ts";
 
 // SQL twin of holdsSeat() from availability.ts.
-const holdsSeatSql = () => inArray(bookings.status, ["requested", "paid"]);
+const holdsSeatSql = () => eq(bookings.status, "paid");
 
 export async function seatsTakenInSession(
   tx: Pick<Db, "select"> | Tx,
@@ -28,7 +28,9 @@ export type CreateBookingInput = {
   sessionId: string;
   name: string;
   phone: string;
-  email: string;
+  email?: string;
+  messenger?: string;
+  comment?: string;
   seats: number;
 };
 
@@ -54,7 +56,7 @@ export async function createBooking(
   if (!Number.isInteger(seats) || seats < 1 || seats > MAX_SEATS_PER_BOOKING) {
     return { ok: false, reason: "invalid_seats" };
   }
-  const email = input.email.trim().toLowerCase();
+
 
   return db.transaction(async (tx) => {
     const [session] = await tx
@@ -78,13 +80,13 @@ export async function createBooking(
       .where(
         and(
           eq(bookings.sessionId, session.id),
-          eq(bookings.email, email),
+          eq(bookings.phone, input.phone),
           eq(bookings.status, "requested"),
         ),
       );
 
     if (existing) {
-      if (existing.seats === seats) {
+      if (existing.seats === seats && existing.name === input.name && existing.messenger === (input.messenger ?? "Telegram") && existing.comment === (input.comment ?? "")) {
         return { ok: true, booking: existing, reused: true } as const;
       }
       // A different seat count replaces the earlier request.
@@ -109,7 +111,9 @@ export async function createBooking(
         sessionId: session.id,
         name: input.name,
         phone: input.phone,
-        email,
+        email: "",
+        messenger: input.messenger ?? "Telegram",
+        comment: input.comment ?? "",
         seats,
         amountKop: session.priceKop * seats,
         status: "requested",
@@ -128,12 +132,17 @@ export async function markPaid(
   bookingId: string,
   now: Date = new Date(),
 ): Promise<Booking | undefined> {
-  const [booking] = await db
-    .update(bookings)
-    .set({ status: "paid", paidAt: now })
-    .where(and(eq(bookings.id, bookingId), eq(bookings.status, "requested")))
-    .returning();
-  return booking;
+  return db.transaction(async (tx) => {
+    const [pending] = await tx.select().from(bookings).where(eq(bookings.id, bookingId));
+    if (!pending || pending.status !== "requested") return undefined;
+    const [session] = await tx.select().from(sessions).where(eq(sessions.id, pending.sessionId)).for("update");
+    if (!session || session.status !== "open") return undefined;
+    const taken = await seatsTakenInSession(tx, session.id);
+    if (taken + pending.seats > session.capacity) return undefined;
+    const [booking] = await tx.update(bookings).set({ status: "paid", paidAt: now })
+      .where(and(eq(bookings.id, bookingId), eq(bookings.status, "requested"))).returning();
+    return booking;
+  });
 }
 
 export type SessionWithAvailability = Session & {

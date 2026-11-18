@@ -70,8 +70,6 @@ const menu = new Keyboard()
   .row()
   .text(BTN_REQUESTS)
   .text(BTN_ANALYTICS)
-  .row()
-  .text(BTN_EMAILS)
   .resized()
   .persistent();
 
@@ -124,6 +122,9 @@ export function createBot(db: Db, token: string): Bot {
         .text("💰 Ціна", `ep:${sessionId}`)
         .row()
         .text("⏱ Тривалість", `ed:${sessionId}`)
+        .text("✏️ Назва", `en:${sessionId}`)
+        .row()
+        .text("📍 Локація", `el:${sessionId}`)
         .text("👥 Учасники", `pl:${sessionId}`)
         .row()
         .text("❌ Скасувати дату", `cx:${sessionId}`)
@@ -319,14 +320,14 @@ export function createBot(db: Db, token: string): Bot {
           ...draft.data,
           startsAt: start.startsAt.toISOString(),
         });
-        await ask("<b>Крок 3/4</b>\nСкільки місць? Число від 1 до 50");
+        await ask("<b>Крок 3/4</b>\nСкільки місць? Число від 1 до 10");
         return;
       }
 
       case "capacity": {
         const capacity = parseCapacity(text);
         if (!capacity) {
-          await ask("Потрібне ціле число від 1 до 50.");
+          await ask("Потрібне ціле число від 1 до 10.");
           return;
         }
         await saveDraft(db, chatId, "price", { ...draft.data, capacity });
@@ -358,7 +359,7 @@ export function createBot(db: Db, token: string): Bot {
       case "edit_capacity": {
         const capacity = parseCapacity(text);
         if (!capacity) {
-          await ask("Потрібне ціле число від 1 до 50.");
+          await ask("Потрібне ціле число від 1 до 10.");
           return;
         }
         const sessionId = draft.data.sessionId as string;
@@ -419,7 +420,7 @@ export function createBot(db: Db, token: string): Bot {
         let report = `✅ Час змінено: <b>${esc(when(updated.startsAt))}</b>`;
         if (guests.length > 0) {
           const result = await notifyRescheduled(db, guests, updated, before.startsAt);
-          report += `\nЛисти учасникам: надіслано ${result.sent}`;
+          report += `\nПовідомте учасників про новий час у месенджері.`;
           if (result.failed > 0) {
             report += `\n⚠️ Не вдалося надіслати: ${result.failed}. Повідомте їх самі.`;
           }
@@ -446,6 +447,18 @@ export function createBot(db: Db, token: string): Bot {
           `✅ Нова ціна: <b>${esc(formatUah(priceKop))}</b>. Вона діє для нових записів, оплачені не змінюються.`,
           HTML,
         );
+        await showCard(ctx, sessionId, false);
+        return;
+      }
+
+      case "edit_title":
+      case "edit_location": {
+        const value = text.trim();
+        if (!value || value.length > 160) { await ask("Вкажіть текст до 160 символів."); return; }
+        const sessionId = draft.data.sessionId as string;
+        const updated = await updateSession(db, sessionId, draft.step === "edit_title" ? { title: value } : { location: value });
+        await clearDraft(db, chatId);
+        if (!updated) { await ctx.reply("Дату не знайдено."); return; }
         await showCard(ctx, sessionId, false);
         return;
       }
@@ -523,7 +536,7 @@ export function createBot(db: Db, token: string): Bot {
   bot.callbackQuery(/^cap:([0-9a-f-]{36})$/, async (ctx) => {
     await ctx.answerCallbackQuery();
     await saveDraft(db, chatIdOf(ctx), "edit_capacity", { sessionId: ctx.match[1] });
-    await ctx.reply("Скільки місць має бути на цю дату? Число від 1 до 50", {
+    await ctx.reply("Скільки місць має бути на цю дату? Число від 1 до 10", {
       reply_markup: cancelKeyboard,
     });
   });
@@ -538,7 +551,7 @@ export function createBot(db: Db, token: string): Bot {
   startEdit(
     "et",
     "edit_start",
-    "Нова дата й час? Напишіть, наприклад, <code>21.12 18:00</code>. Учасникам піде лист про зміну.",
+    "Нова дата й час? Напишіть, наприклад, <code>21.12 18:00</code>. Повідомте учасників у месенджері.",
   );
   startEdit(
     "ep",
@@ -546,6 +559,8 @@ export function createBot(db: Db, token: string): Bot {
     "Нова ціна за місце в гривнях? Діє для нових записів, оплачені не змінюються.",
   );
   startEdit("ed", "edit_duration", "Тривалість у хвилинах? Наприклад <code>120</code>");
+  startEdit("en", "edit_title", "Нова назва майстер-класу?");
+  startEdit("el", "edit_location", "Нова назва й адреса локації?");
 
   bot.callbackQuery(/^pl:([0-9a-f-]{36})$/, async (ctx) => {
     await ctx.answerCallbackQuery();
@@ -598,19 +613,12 @@ export function createBot(db: Db, token: string): Bot {
     await ctx.answerCallbackQuery();
     const result = await confirmPaid(db, ctx.match[1]);
     if (!result) {
-      await ctx.editMessageText("Цю заявку вже оброблено (оплачено або скасовано).");
+      await ctx.editMessageText("Заявку вже оброблено або вільних місць для підтвердження недостатньо.");
       return;
     }
     await ctx.editMessageText(
-      `✅ Оплату підтверджено: ${participantLine(result.booking)}\n${
-        result.emailSent
-          ? "Клієнту надіслано лист із підтвердженням."
-          : "⚠️ Лист клієнту не надіслано, повідомте його самі."
-      }`,
-      {
-        ...HTML,
-        reply_markup: new InlineKeyboard().text("⬅️ До учасників", `pl:${result.booking.sessionId}`),
-      },
+      `✅ Оплату підтверджено: ${participantLine(result.booking)}\nНапишіть гостю в обраний месенджер.`,
+      { ...HTML, reply_markup: new InlineKeyboard().text("⬅️ До учасників", `pl:${result.booking.sessionId}`) },
     );
   });
 
@@ -626,7 +634,7 @@ export function createBot(db: Db, token: string): Bot {
         ? ` Кошти (${esc(formatUah(booking.amountKop))}) потрібно повернути вручну.`
         : "";
     await ctx.editMessageText(
-      `Скасувати ${booking.status === "paid" ? "запис" : "заявку"} <b>${esc(booking.name)}</b> (${esc(pluralSeats(booking.seats))})? Місця звільняться, клієнт отримає лист.${money}`,
+      `Скасувати ${booking.status === "paid" ? "запис" : "заявку"} <b>${esc(booking.name)}</b> (${esc(pluralSeats(booking.seats))})? Місця звільняться. Повідомте гостя в месенджері.${money}`,
       {
         ...HTML,
         reply_markup: new InlineKeyboard()
@@ -651,8 +659,8 @@ export function createBot(db: Db, token: string): Bot {
     if (session) {
       const result = await notifyCancelled(db, [cancelled], session);
       report += result.sent > 0
-        ? "\nЛист клієнту надіслано."
-        : "\n⚠️ Лист клієнту не надіслано, повідомте його самі.";
+        ? "\nПовідомте гостя в обраний месенджер."
+        : "\nПовідомте гостя в обраний месенджер.";
     }
     await ctx.editMessageText(report, {
       ...HTML,
@@ -663,7 +671,7 @@ export function createBot(db: Db, token: string): Bot {
   bot.callbackQuery(/^cx:([0-9a-f-]{36})$/, async (ctx) => {
     await ctx.answerCallbackQuery();
     await ctx.editMessageText(
-      "Скасувати цю дату? Нові заявки стануть неможливими. Усі, хто записався, отримають лист. Гроші автоматично <b>не повертаються</b>: ви побачите список, кому повернути.",
+      "Скасувати цю дату? Нові заявки стануть неможливими. Повідомте учасників у месенджері. Гроші автоматично <b>не повертаються</b>: ви побачите список, кому повернути.",
       {
         ...HTML,
         reply_markup: new InlineKeyboard()
@@ -691,7 +699,7 @@ export function createBot(db: Db, token: string): Bot {
           : `Потрібно повернути кошти (${paidGuests.length}):\n${paidGuests.map(participantLine).join("\n")}\nЗаявок без оплати скасовано: ${participants.length - paidGuests.length}.`;
     if (participants.length > 0) {
       const result = await notifyCancelled(db, participants, cancelled);
-      refunds += `\n\nЛисти учасникам: надіслано ${result.sent}`;
+      refunds += `\n\nПовідомте учасників у месенджері.`;
       if (result.failed > 0) refunds += `\n⚠️ Не вдалося надіслати: ${result.failed}. Повідомте їх самі.`;
     }
     await ctx.editMessageText(

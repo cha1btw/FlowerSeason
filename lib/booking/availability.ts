@@ -1,6 +1,6 @@
 import type { BookingStatus } from "../db/schema.ts";
 
-export const MAX_SEATS_PER_BOOKING = 4;
+export const MAX_SEATS_PER_BOOKING = 10;
 
 export type SeatHolder = { status: BookingStatus; seats: number };
 
@@ -8,7 +8,7 @@ export type SeatHolder = { status: BookingStatus; seats: number };
 // it; a paid booking holds them for good. Cancelled ones hold nothing.
 // lib/booking/service.ts mirrors this rule in SQL (holdsSeatSql): keep them in sync.
 export function holdsSeat(booking: SeatHolder): boolean {
-  return booking.status === "requested" || booking.status === "paid";
+  return booking.status === "paid";
 }
 
 export function seatsTaken(bookings: SeatHolder[]): number {

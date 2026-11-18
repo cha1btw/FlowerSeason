@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { holdsSeat, seatsLeft, seatsTaken } from "../lib/booking/availability.ts";
 
-test("requested and paid bookings hold their seats", () => {
-  assert.equal(holdsSeat({ status: "requested", seats: 2 }), true);
+test("only paid bookings hold their seats", () => {
+  assert.equal(holdsSeat({ status: "requested", seats: 2 }), false);
   assert.equal(holdsSeat({ status: "paid", seats: 2 }), true);
 });
 
@@ -18,7 +18,7 @@ test("seatsTaken sums only bookings that hold seats", () => {
       { status: "requested", seats: 3 },
       { status: "cancelled", seats: 4 },
     ]),
-    5,
+    2,
   );
 });
 

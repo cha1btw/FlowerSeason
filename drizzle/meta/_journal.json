@@ -29,6 +29,20 @@
       "when": 1791584058482,
       "tag": "0003_email_templates",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1795025392229,
+      "tag": "0004_shiny_luckman",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1795026126007,
+      "tag": "0005_harsh_human_fly",
+      "breakpoints": true
     }
   ]
 }

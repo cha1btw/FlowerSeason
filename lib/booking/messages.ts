@@ -3,7 +3,10 @@ import { formatSessionDate, formatSessionTime, formatSessionWeekday } from "../t
 
 export type Details = {
   name: string;
+  title?: string;
   email: string;
+  messenger?: string;
+  comment?: string;
   phone: string;
   seats: number;
   amountKop: number;
@@ -36,16 +39,17 @@ ${body}
 // `esc` is escapeTelegramHtml, injected so this module stays free of Telegram specifics.
 export function adminRequestMessage(
   d: Details,
-  extra: { seatsLeft: number; emailSent: boolean },
+  extra: { seatsLeft: number; emailSent?: boolean },
   esc: (value: string) => string,
 ): string {
   return [
     "📝 <b>Нова заявка</b>",
+    ...(d.title ? [`<b>${esc(d.title)}</b>`] : []),
     `${esc(when(d.startsAt))}`,
-    `${esc(d.name)} · ${esc(d.phone)} · ${esc(d.email)}`,
+    `${esc(d.name)} · ${esc(d.phone)} · ${esc(d.messenger ?? "Telegram")}`,
     `${esc(pluralSeats(d.seats))} · до сплати ${esc(formatUah(d.amountKop))}`,
-    `Вільно місць на цю дату: <b>${extra.seatsLeft}</b>`,
+    ...(d.comment ? [`Побажання: ${esc(d.comment)}`] : []),
+    `Вільно місць після оплачених бронювань: <b>${extra.seatsLeft}</b>`,
     "Надішліть клієнту посилання на оплату, а потім натисніть «Оплачено».",
-    ...(extra.emailSent ? [] : ["⚠️ Лист клієнту не надіслано (перевірте email у заявці)."]),
   ].join("\n");
 }

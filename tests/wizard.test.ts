@@ -42,10 +42,10 @@ test("times accept common spellings and reject nonsense", () => {
   }
 });
 
-test("capacity is a whole number from 1 to 50", () => {
+test("capacity is a whole number from 1 to 10", () => {
   assert.equal(parseCapacity("8"), 8);
-  assert.equal(parseCapacity(" 50 "), 50);
-  for (const bad of ["0", "51", "-1", "1.5", "abc", ""]) {
+  assert.equal(parseCapacity(" 10 "), 10);
+  for (const bad of ["0", "11", "-1", "1.5", "abc", ""]) {
     assert.equal(parseCapacity(bad), null, bad);
   }
 });

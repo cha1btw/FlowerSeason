@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { HeroTitle } from "@/components/hero-title";
 import { ArrowUpRight } from "lucide-react";
 import { siteContent } from "@/lib/content";
 
@@ -18,12 +19,10 @@ export default function GatewayPage() {
       <main className="mx-auto flex w-full max-w-[1200px] flex-1 flex-col justify-center py-10 sm:py-12 lg:py-8">
         <div className="fade-up text-center" style={{ animationDelay: "0.05s" }}>
           <p className="text-[11px] tracking-[0.22em] text-neutral-500">{gateway.prompt}</p>
-          <h1 className="mt-5 whitespace-pre-line text-[clamp(2rem,4.2vw,3.75rem)] font-light leading-[0.98] tracking-[-0.045em]">
-            {gateway.headline}
-          </h1>
+          <div className="mt-5 flex justify-center"><HeroTitle /></div>
         </div>
 
-        <div className="mt-10 grid gap-10 sm:mt-12 md:grid-cols-2 md:gap-6 lg:mt-14 lg:gap-10">
+        <div className="mt-10 grid gap-10 sm:mt-12 sm:grid-cols-2 md:gap-6 lg:mt-14 lg:gap-10">
           {gateway.options.map((option, index) => (
             <Link
               key={option.id}
@@ -31,7 +30,7 @@ export default function GatewayPage() {
               className="fade-up group block outline-none"
               style={{ animationDelay: `${0.2 + index * 0.12}s` }}
             >
-              <div className="relative h-[34svh] min-h-[220px] overflow-hidden bg-line md:h-[40svh] lg:h-[42svh]">
+              <div className="relative aspect-[3/4] overflow-hidden bg-line">
                 <Image
                   src={option.image}
                   alt={option.imageAlt}
@@ -56,7 +55,7 @@ export default function GatewayPage() {
                   <p className="mt-3 max-w-sm text-sm leading-relaxed text-neutral-600">
                     {option.description}
                   </p>
-                  <p className="mt-4 text-[10px] tracking-[0.16em] text-neutral-500">{option.tags}</p>
+                  <p className="mt-4 text-xs tracking-[0.16em]">Explore ↗</p>
                 </div>
                 <span
                   className="mt-1 grid size-12 shrink-0 place-items-center border border-ink transition-colors duration-500 group-hover:bg-ink group-hover:text-canvas group-focus-visible:bg-ink group-focus-visible:text-canvas"

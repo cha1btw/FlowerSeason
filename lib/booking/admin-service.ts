@@ -49,6 +49,8 @@ export type SessionPatch = {
   startsAt?: Date;
   priceKop?: number;
   durationMin?: number;
+  title?: string;
+  location?: string;
 };
 
 // Changes time, price or duration of a date that is not cancelled.
@@ -106,6 +108,7 @@ export async function updateCapacity(
   capacity: number,
   now: Date = new Date(),
 ): Promise<UpdateCapacityResult> {
+  if (!Number.isInteger(capacity) || capacity < 1 || capacity > 10) return { ok: false, reason: "too_low" };
   return db.transaction(async (tx) => {
     const [session] = await tx
       .select()

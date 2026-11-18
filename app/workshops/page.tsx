@@ -3,6 +3,8 @@ import { connection } from "next/server";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
+import { HeroTitle } from "@/components/hero-title";
+import { MediaCarousel } from "@/components/media-carousel";
 import { Header } from "@/components/header";
 import { Reveal } from "@/components/reveal";
 import { SectionHeading } from "@/components/section-heading";
@@ -20,6 +22,7 @@ import {
   formatSessionDate,
   formatSessionTime,
   formatSessionWeekday,
+  kyivDateParts,
 } from "@/lib/time";
 
 const { brand, contacts, footer, workshopsPage: page } = siteContent;
@@ -42,12 +45,17 @@ const ctaClass =
 
 function toPublic(session: SessionWithAvailability): PublicSession {
   const [day, ...month] = formatSessionDate(session.startsAt).split(" ");
+  const date = kyivDateParts(session.startsAt);
   return {
     id: session.id,
+    title: session.title,
+    location: session.location,
+    dateKey: `${date.year}-${String(date.month).padStart(2, "0")}-${String(date.day).padStart(2, "0")}`,
     day,
     month: month.join(" "),
     weekday: formatSessionWeekday(session.startsAt),
     time: formatSessionTime(session.startsAt),
+    endTime: session.durationMin ? formatSessionTime(new Date(session.startsAt.getTime() + session.durationMin * 60_000)) : null,
     durationMin: session.durationMin,
     priceKop: session.priceKop,
     seatsLeft: session.seatsLeft,
@@ -97,13 +105,11 @@ export default async function WorkshopsPage() {
               <p className="mb-6 text-[11px] tracking-[0.2em] sm:mb-10">
                 {page.hero.eyebrow}
               </p>
-              <h1 className="max-w-[15ch] whitespace-pre-line text-[clamp(3.3rem,10vw,10rem)] font-light leading-[0.84] tracking-[-0.055em]">
-                {page.hero.title}
-              </h1>
+              <HeroTitle />
             </Reveal>
 
             <Reveal delay={0.15} className="mt-10 grid grid-cols-12 gap-y-8 sm:mt-14">
-              <p className="col-span-12 max-w-xl text-base leading-relaxed sm:col-span-7 sm:text-lg lg:col-span-5 lg:col-start-1">
+              <p className="col-span-12 max-w-xl whitespace-pre-line text-base leading-relaxed sm:col-span-7 sm:text-lg lg:col-span-5 lg:col-start-1">
                 {page.hero.subtitle}
               </p>
               <div className="col-span-12 flex flex-col items-start gap-8 sm:col-span-5 sm:items-end lg:col-span-4 lg:col-start-9">
@@ -171,42 +177,12 @@ export default async function WorkshopsPage() {
               </Reveal>
             </div>
 
-            <div className="mt-16 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 lg:mt-24">
-              {page.about.gallery.map((item, index) => (
-                <Reveal key={item.src} delay={index * 0.06}>
-                  <div className="group relative aspect-[3/4] overflow-hidden bg-line">
-                    <Image
-                      src={item.src}
-                      alt={item.alt}
-                      fill
-                      sizes="(max-width: 639px) 50vw, 33vw"
-                      className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
-                    />
-                  </div>
-                </Reveal>
-              ))}
-              <Reveal delay={0.12} className="col-span-2 sm:col-span-1">
-                <div className="relative aspect-[3/4] overflow-hidden bg-line max-sm:aspect-[4/3]">
-                  <Image
-                    src={page.about.videoPoster}
-                    alt={page.about.videoLabel}
-                    fill
-                    sizes="(max-width: 639px) 100vw, 33vw"
-                    className="object-cover"
-                  />
-                  <video
-                    className="motion-video absolute inset-0 size-full object-cover"
-                    src={page.about.video}
-                    poster={page.about.videoPoster}
-                    aria-label={page.about.videoLabel}
-                    autoPlay
-                    muted
-                    loop
-                    playsInline
-                    preload="metadata"
-                  />
-                </div>
-              </Reveal>
+            <div className="mt-16 lg:mt-24">
+              <MediaCarousel label="About workshops" items={[
+                { src: page.about.image, alt: page.about.imageAlt },
+                ...page.about.gallery,
+                { src: page.about.video, alt: page.about.videoLabel, type: "video", poster: page.about.videoPoster },
+              ]} />
             </div>
           </div>
         </section>
@@ -220,23 +196,7 @@ export default async function WorkshopsPage() {
                 subtitle={page.how.subtitle}
               />
             </Reveal>
-            <ol className="mt-16 grid gap-y-12 border-t border-line pt-10 sm:grid-cols-3 sm:gap-x-8 lg:mt-24">
-              {page.how.steps.map((step, index) => (
-                <li key={step.number} className="list-none">
-                  <Reveal delay={index * 0.08}>
-                    <span className="text-[clamp(3.5rem,8vw,7rem)] font-light leading-none tracking-[-0.06em] text-neutral-300">
-                      {step.number}
-                    </span>
-                    <h3 className="mt-6 text-xl font-light tracking-[-0.02em] lg:text-2xl">
-                      {step.title}
-                    </h3>
-                    <p className="mt-3 max-w-xs text-sm leading-relaxed text-neutral-600">
-                      {step.description}
-                    </p>
-                  </Reveal>
-                </li>
-              ))}
-            </ol>
+            <p className="mt-16 max-w-2xl text-lg leading-relaxed">Обирай свою різдвяну зустріч! Знайомся з розкладом, обирай дату та залишай заявку. Ми особисто зв’яжемося з тобою, допоможемо з оплатою та підтвердимо бронювання.</p>
           </div>
         </section>
 
@@ -277,6 +237,17 @@ export default async function WorkshopsPage() {
                 <BookingPanel sessions={sessions} demo={demo} />
               )}
             </div>
+          </div>
+        </section>
+
+        <section className={`${sectionSpace} ${pageGutter}`}>
+          <div className="mx-auto max-w-[1600px]">
+            <h2 className="text-[clamp(2.4rem,6vw,6rem)] font-light">Як приєднатися?</h2>
+            <ol className="mt-12 grid gap-10 border-t border-line pt-8 sm:grid-cols-3">
+              <li><span className="text-4xl font-light">01</span><h3 className="mt-5 text-xl">Обирай свою дату</h3><p className="mt-3">Знайди в календарі різдвяну зустріч, яка тобі до душі.</p></li>
+              <li><span className="text-4xl font-light">02</span><h3 className="mt-5 text-xl">Залишай заявку</h3><p className="mt-3">Заповни коротку форму, вкажи кількість місць та зручний месенджер для зв’язку.</p></li>
+              <li><span className="text-4xl font-light">03</span><h3 className="mt-5 text-xl">І до зустрічі!</h3><p className="mt-3">Ми особисто напишемо тобі, надішлемо інформацію для оплати, а після неї остаточно підтвердимо бронювання.</p></li>
+            </ol>
           </div>
         </section>
 

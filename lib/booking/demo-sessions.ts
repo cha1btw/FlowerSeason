@@ -8,9 +8,11 @@ export function demoSessions(now: Date = new Date()): SessionWithAvailability[] 
   const year = today.month === 12 && today.day > 20 ? today.year + 1 : today.year;
 
   const rows = [
-    { day: 13, hour: 12, capacity: 8, left: 7, priceKop: 180_000 },
-    { day: 14, hour: 15, capacity: 8, left: 8, priceKop: 180_000 },
-    { day: 20, hour: 18, capacity: 2, left: 0, priceKop: 200_000 },
+    { day: 5, hour: 11, title: "РІЗДВЯНИЙ ВІНОК", durationMin: 120 },
+    { day: 12, hour: 11, title: "РІЗДВЯНИЙ ВІНОК", durationMin: 120 },
+    { day: 12, hour: 14, title: "УКРАЇНСЬКИЙ СОЛОМ’ЯНИЙ ПАВУК", durationMin: 0 },
+    { day: 19, hour: 11, title: "РІЗДВЯНИЙ ВІНОК", durationMin: 120 },
+    { day: 26, hour: 11, title: "РІЗДВЯНИЙ ВІНОК", durationMin: 120 },
   ];
 
   return rows.flatMap((row) => {
@@ -18,15 +20,17 @@ export function demoSessions(now: Date = new Date()): SessionWithAvailability[] 
     if (!startsAt) return [];
     return [
       {
-        id: `demo-${row.day}`,
+        id: `demo-${row.day}-${row.hour}`,
+        title: row.title,
+        location: "Matilda · провулок Чеховський, 4, Київ",
         startsAt,
-        durationMin: 120,
-        capacity: row.capacity,
-        priceKop: row.priceKop,
+        durationMin: row.durationMin,
+        capacity: 10,
+        priceKop: 290_000,
         status: "open" as const,
         createdAt: now,
-        seatsTaken: row.capacity - row.left,
-        seatsLeft: row.left,
+        seatsTaken: 0,
+        seatsLeft: 10,
       },
     ];
   });

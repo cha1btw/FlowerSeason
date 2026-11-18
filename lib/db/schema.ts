@@ -27,6 +27,8 @@ export const sessions = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
     durationMin: integer("duration_min").notNull().default(120),
+    title: text("title").notNull().default("РІЗДВЯНИЙ ВІНОК"),
+    location: text("location").notNull().default("Matilda · провулок Чеховський, 4, Київ"),
     capacity: integer("capacity").notNull(),
     priceKop: integer("price_kop").notNull(),
     status: text("status", { enum: SESSION_STATUSES }).notNull().default("open"),
@@ -55,7 +57,9 @@ export const bookings = pgTable(
       .references(() => sessions.id),
     name: text("name").notNull(),
     phone: text("phone").notNull(),
-    email: text("email").notNull(),
+    email: text("email").notNull().default(""),
+    messenger: text("messenger").notNull().default("Telegram"),
+    comment: text("comment").notNull().default(""),
     seats: integer("seats").notNull(),
     amountKop: integer("amount_kop").notNull(),
     status: text("status", { enum: BOOKING_STATUSES }).notNull().default("requested"),
@@ -66,7 +70,7 @@ export const bookings = pgTable(
       .defaultNow(),
   },
   (t) => [
-    check("bookings_seats_range", sql`${t.seats} between 1 and 4`),
+    check("bookings_seats_range", sql`${t.seats} between 1 and 10`),
     check("bookings_amount_non_negative", sql`${t.amountKop} >= 0`),
     check(
       "bookings_status_valid",
@@ -100,3 +104,9 @@ export const emailTemplates = pgTable("email_templates", {
 
 export type Session = typeof sessions.$inferSelect;
 export type Booking = typeof bookings.$inferSelect;
+
+// Tracks one-time content setup so later owner edits are not overwritten.
+export const siteSettings = pgTable("site_settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+});
