@@ -52,13 +52,32 @@ public/         Images, video and favicon
 
 ## Getting started
 
+The simplest way needs only Docker Desktop. It starts PostgreSQL and the dev
+server, applies migrations and adds the December sample dates:
+
+```bash
+docker compose up -d --build                  # http://localhost:3000
+docker compose exec app npm run typecheck
+docker compose exec app npm test              # uses the flowerseason_test database
+docker compose down                           # stop (data is kept)
+```
+
+Code edits on the host are picked up live. After changing `package.json`, run
+`docker compose up -d --build` again.
+
+Handing the project over or setting it up on a new computer:
+[docs/handover.md](docs/handover.md) and
+[docs/codex-setup-prompt.md](docs/codex-setup-prompt.md).
+
+### Without Docker for the app
+
 Requirements: Node.js 22.9 or newer (the scripts use `--env-file-if-exists`),
 npm, and Docker for a local PostgreSQL.
 
 ```bash
 npm install
 cp .env.example .env.local      # then fill in the values you need
-docker compose up -d            # PostgreSQL on port 5433
+docker compose up -d db         # PostgreSQL on port 5433
 docker compose exec db createdb -U flowerseason flowerseason_test   # once, for tests
 npm run db:migrate              # apply migrations to DATABASE_URL
 node --env-file-if-exists=.env.local scripts/seed-dev.ts            # optional sample dates

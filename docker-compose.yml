@@ -9,6 +9,7 @@ services:
       - "5433:5432"
     volumes:
       - flowerseason-pgdata:/var/lib/postgresql/data
+      - ./docker/initdb:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U flowerseason -d flowerseason"]
       interval: 5s
@@ -19,11 +20,16 @@ services:
       dockerfile: Dockerfile.dev
     volumes:
       - .:/app
+      # Keep the container's own node_modules and build cache, so the host's
+      # (macOS/Windows) node_modules never shadow the Linux ones.
+      - /app/node_modules
+      - /app/.next
     env_file:
       - path: .env.local
         required: false
     environment:
       DATABASE_URL: postgres://flowerseason:flowerseason@db:5432/flowerseason
+      TEST_DATABASE_URL: postgres://flowerseason:flowerseason@db:5432/flowerseason_test
     ports:
       - "3000:3000"
     depends_on:

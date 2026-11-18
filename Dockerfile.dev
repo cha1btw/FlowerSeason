@@ -1,4 +1,10 @@
 FROM node:22-bookworm-slim
 WORKDIR /app
+
+# Install dependencies inside the image (Linux builds of native packages).
+# The source code itself is mounted as a volume by docker-compose.yml.
+COPY package.json package-lock.json ./
+RUN npm ci
+
 EXPOSE 3000
 CMD ["sh", "-c", "npm run db:migrate && node scripts/seed-december-2026.ts && npm run dev -- --hostname 0.0.0.0"]
