@@ -51,6 +51,10 @@ If the test database is missing (old Docker volume):
   flowerseason.company within a couple of minutes. Before pushing to `main`, show
   the owner what changed and get her OK. Larger changes go to a separate branch:
   Vercel builds a preview link for every branch, she checks it, then merge.
+- Vercel belongs to the owner's brother (account `cha1btw`, Hobby plan) and holds his
+  other projects too. Touch only the `flower-season` project. Do not install or use
+  the Vercel CLI, do not change billing, domains or other projects; deployment
+  happens automatically on push to GitHub.
 - Never commit `.env*` files, tokens or passwords. If you see a secret in the code,
   tell the owner immediately.
 - Never `git push --force` to `main` and never rewrite published history.
